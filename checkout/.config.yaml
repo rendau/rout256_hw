@@ -1,0 +1,3 @@
+token: "testtoken"
+services:
+  loms: "http://loms:8081"

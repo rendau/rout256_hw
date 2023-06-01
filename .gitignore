@@ -1,0 +1,12 @@
+*.log
+*.tar
+*.tar.gz
+*.tar.bz2
+.idea
+release/*
+build/
+conf.yml
+conf.yaml
+config.yml
+config.yaml
+.env
