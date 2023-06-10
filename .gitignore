@@ -10,3 +10,6 @@ conf.yaml
 config.yml
 config.yaml
 .env
+/bin
+/pkg
+/vendor-proto

@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package checkout_v1;
+
+option go_package = "route256/checkout/pkg/proto/checkout_v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service Checkout {
+  rpc AddToCart(AddToCartRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/addToCart"
+      body: "*"
+    };
+  };
+  rpc DeleteFromCart(DeleteFromCartRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/deleteFromCart"
+      body: "*"
+    };
+  };
+  rpc ListCart(ListCartRequest) returns (ListCartResponse) {
+    option (google.api.http) = {
+      post: "/listCart"
+      body: "*"
+    };
+  };
+  rpc Purchase(PurchaseRequest) returns (PurchaseResponse) {
+    option (google.api.http) = {
+      post: "/purchase"
+      body: "*"
+    };
+  };
+}
+
+message AddToCartRequest {
+  int64 user = 1;
+  uint32 sku = 2;
+  uint32 count = 3;
+}
+
+message DeleteFromCartRequest {
+  int64 user = 1;
+  uint32 sku = 2;
+  uint32 count = 3;
+}
+
+message ListCartRequest {
+  int64 user = 1;
+}
+
+message ListCartResponse {
+  repeated ListCartResponseItem items = 1;
+  uint32 totalPrice = 2;
+}
+
+message ListCartResponseItem {
+  uint32 sku = 1;
+  uint32 count = 2;
+  string name = 3;
+  uint32 price = 4;
+}
+
+message PurchaseRequest {
+  int64 user = 1;
+}
+
+message PurchaseResponse {
+  int64 orderID = 1;
+}

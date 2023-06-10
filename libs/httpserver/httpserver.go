@@ -18,11 +18,11 @@ type Server struct {
 	eChan  chan error
 }
 
-func Start(addr string, handler http.Handler) *Server {
+func Start(port string, handler http.Handler) *Server {
 	s := &Server{
-		addr: addr,
+		addr: port,
 		server: &http.Server{
-			Addr:              addr,
+			Addr:              ":" + port,
 			Handler:           handler,
 			ReadHeaderTimeout: ReadHeaderTimeout,
 			ReadTimeout:       ReadTimeout,
