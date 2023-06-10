@@ -1,19 +1,22 @@
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
 	"os"
-	"route256/libs/hndwrapper"
+
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"route256/libs/grpcserver"
 	"route256/libs/httpserver"
 	"route256/libs/stopsignal"
 	"route256/loms/internal/domain"
-	"route256/loms/internal/handlers/cancelorder"
-	"route256/loms/internal/handlers/createorder"
-	"route256/loms/internal/handlers/listorder"
-	"route256/loms/internal/handlers/orderpayed"
-	"route256/loms/internal/handlers/stocks"
-	"time"
+	"route256/loms/internal/handler"
+	"route256/loms/pkg/proto/loms_v1"
+
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -24,19 +27,37 @@ func main() {
 
 	model := domain.New()
 
-	// routes
-	http.Handle("/createOrder", hndwrapper.New(createorder.New(model).Handle))
-	http.Handle("/listOrder", hndwrapper.New(listorder.New(model).Handle))
-	http.Handle("/orderPayed", hndwrapper.New(orderpayed.New(model).Handle))
-	http.Handle("/cancelOrder", hndwrapper.New(cancelorder.New(model).Handle))
-	http.Handle("/stocks", hndwrapper.New(stocks.New(model).Handle))
+	// grpc
+	grpcHandler := handler.New(model)
+	grpcSrv := grpcserver.New()
+	reflection.Register(grpcSrv.Server)
+	loms_v1.RegisterLomsServer(grpcSrv.Server, grpcHandler)
+
+	// http
+	mux := runtime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	err = loms_v1.RegisterLomsHandlerFromEndpoint(context.Background(), mux, "localhost:"+cfg.GrpcPort, opts)
+	if err != nil {
+		log.Fatalln("RegisterCheckoutHandlerFromEndpoint: ", err)
+	}
 
 	// start server
-	httpSrv := httpserver.Start(cfg.HttpListen, http.DefaultServeMux)
+
+	err = grpcSrv.Start(cfg.GrpcPort)
+	if err != nil {
+		log.Fatalln("grpcSrv.Start: ", err)
+	}
+
+	httpSrv := httpserver.Start(cfg.HttpPort, mux)
+	if err != nil {
+		log.Fatalln("httpserver.Start: ", err)
+	}
 
 	exitCode := 0
 
 	select {
+	case <-grpcSrv.Wait():
+		exitCode = 1
 	case <-httpSrv.Wait():
 		exitCode = 1
 	case <-stopsignal.StopSignal():
@@ -44,7 +65,7 @@ func main() {
 
 	log.Println("Shutdown service...")
 
-	if !httpSrv.Shutdown(10 * time.Second) {
+	if !grpcSrv.Shutdown() {
 		exitCode = 1
 	}
 

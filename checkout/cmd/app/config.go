@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	HttpListen string `mapstructure:"http_listen"`
-	Services   struct {
+	GrpcPort string `mapstructure:"grpc_port"`
+	HttpPort string `mapstructure:"http_port"`
+	Services struct {
 		Loms           ConfigService `mapstructure:"loms"`
 		ProductService ConfigService `mapstructure:"product_service"`
 	} `mapstructure:"services"`
@@ -21,8 +22,9 @@ type ConfigService struct {
 }
 
 func ConfigLoad() (*Config, error) {
-	viper.SetDefault("http_listen", ":8080")
-	viper.SetDefault("services.loms.url", "http://localhost:8081")
+	viper.SetDefault("grpc_port", "8080")
+	viper.SetDefault("http_port", "8180")
+	viper.SetDefault("services.loms.url", "localhost:8081")
 	viper.SetDefault("services.product_service.url", "")
 	viper.SetDefault("services.product_service.token", "")
 

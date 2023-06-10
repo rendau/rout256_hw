@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package loms_v1;
+
+option go_package = "route256/loms/pkg/proto/loms_v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service Loms {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse) {
+    option (google.api.http) = {
+      post: "/createOrder"
+      body: "*"
+    };
+  };
+  rpc ListOrder(ListOrderRequest) returns (ListOrderResponse) {
+    option (google.api.http) = {
+      post: "/listOrder"
+      body: "*"
+    };
+  };
+  rpc OrderPayed(OrderPayedRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/orderPayed"
+      body: "*"
+    };
+  };
+  rpc CancelOrder(CancelOrderRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/cancelOrder"
+      body: "*"
+    };
+  };
+  rpc Stocks(StocksRequest) returns (StocksResponse) {
+    option (google.api.http) = {
+      post: "/stocks"
+      body: "*"
+    };
+  };
+}
+
+message CancelOrderRequest {
+  int64 orderID = 1;
+}
+
+message CreateOrderRequest {
+  int64 user = 1;
+  repeated Order items = 2;
+}
+
+message CreateOrderResponse {
+  int64 orderID = 1;
+}
+
+message ListOrderRequest {
+  int64 orderID = 1;
+}
+
+message ListOrderResponse {
+  string status = 1;
+  int64 user = 2;
+  repeated Order items = 3;
+}
+
+message OrderPayedRequest {
+  int64 orderID = 1;
+}
+
+message StocksRequest {
+  uint32 sku = 1;
+}
+
+message StocksResponse {
+  repeated Stock stocks = 1;
+}
+
+message Order {
+  uint32 sku = 1;
+  uint32 count = 2;
+}
+
+message Stock {
+  int64 warehouseID = 1;
+  uint64 count = 2;
+}
+
+
+// ----------------------------
+
+message AddToCartRequest {
+  int64 user = 1;
+  uint32 sku = 2;
+  uint32 count = 3;
+}
+
+message DeleteFromCartRequest {
+  int64 user = 1;
+  uint32 sku = 2;
+  uint32 count = 3;
+}
+
+message ListCartRequest {
+  int64 user = 1;
+}
+
+message ListCartResponse {
+  repeated ListCartResponseItem items = 1;
+  uint32 totalPrice = 2;
+}
+
+message ListCartResponseItem {
+  uint32 sku = 1;
+  uint32 count = 2;
+  string name = 3;
+  uint32 price = 4;
+}
+
+message PurchaseRequest {
+  int64 user = 1;
+}
+
+message PurchaseResponse {
+  int64 orderID = 1;
+}

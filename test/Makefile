@@ -1,43 +1,12 @@
 CURDIR=$(shell pwd)
 BINDIR=${CURDIR}/bin
-GOVER=$(shell go version | perl -nle '/(go\d\S+)/; print $$1;')
-SMARTIMPORTS=${BINDIR}/smartimports_${GOVER}
-LINTVER=v1.51.1
-LINTBIN=${BINDIR}/lint_${GOVER}_${LINTVER}
-PACKAGE=route256/loms/cmd/app
-
-all: format build test lint
+PACKAGE=route256/test
 
 build: bindir
-	go build -o ${BINDIR}/app ${PACKAGE}
-
-test:
-	go test ./...
-
-run:
-	go run ${PACKAGE}
-
-lint: install-lint
-	${LINTBIN} run
-
-precommit: format build test lint
-	echo "OK"
+	go test -c -o ${BINDIR}/app
 
 bindir:
 	mkdir -p ${BINDIR}
-
-format: install-smartimports
-	${SMARTIMPORTS} -exclude internal/mocks
-
-install-lint: bindir
-	test -f ${LINTBIN} || \
-		(GOBIN=${BINDIR} go install github.com/golangci/golangci-lint/cmd/golangci-lint@${LINTVER} && \
-		mv ${BINDIR}/golangci-lint ${LINTBIN})
-
-install-smartimports: bindir
-	test -f ${SMARTIMPORTS} || \
-		(GOBIN=${BINDIR} go install github.com/pav5000/smartimports/cmd/smartimports@latest && \
-		mv ${BINDIR}/smartimports ${SMARTIMPORTS})
 
 # Используем bin в текущей директории для установки плагинов protoc
 bin: bindir
@@ -82,6 +51,24 @@ vendor-proto/validate:
 	mv vendor-proto/validate-repo/validate vendor-proto
 	rm -rf vendor-proto/validate-repo
 
+generate_checkout: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+	mkdir -p pkg/proto/checkout_v1
+	$(PROTOC) -I api/proto/checkout_v1 -I vendor-proto \
+	--go_out pkg/proto/checkout_v1 --go_opt paths=source_relative \
+	--go-grpc_out pkg/proto/checkout_v1 --go-grpc_opt paths=source_relative \
+	--grpc-gateway_out pkg/proto/checkout_v1 --grpc-gateway_opt paths=source_relative \
+	--validate_out="lang=go,paths=source_relative:pkg/proto/checkout_v1" \
+	api/proto/checkout_v1/checkout.proto
+
+generate_product_service: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+	mkdir -p pkg/proto/product_service
+	$(PROTOC) -I api/proto/product_service -I vendor-proto \
+	--go_out pkg/proto/product_service --go_opt paths=source_relative \
+	--go-grpc_out pkg/proto/product_service --go-grpc_opt paths=source_relative \
+	--grpc-gateway_out pkg/proto/product_service --grpc-gateway_opt paths=source_relative \
+	--validate_out="lang=go,paths=source_relative:pkg/proto/product_service" \
+	api/proto/product_service/product_service.proto
+
 generate_loms: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
 	mkdir -p pkg/proto/loms_v1
 	$(PROTOC) -I api/proto/loms_v1 -I vendor-proto \
@@ -91,4 +78,4 @@ generate_loms: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-p
 	--validate_out="lang=go,paths=source_relative:pkg/proto/loms_v1" \
 	api/proto/loms_v1/loms.proto
 
-generate: generate_loms
+generate: generate_checkout generate_product_service generate_loms
