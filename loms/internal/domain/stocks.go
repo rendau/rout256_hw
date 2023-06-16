@@ -2,24 +2,28 @@ package domain
 
 import (
 	"context"
+	"fmt"
+
+	"route256/loms/internal/domain/models"
 )
 
-func (m *Model) StocksValidate(sku uint32) error {
+func (d *Domain) StocksValidate(sku uint32) error {
 	if sku == 0 {
 		return ErrSkuRequired
 	}
 	return nil
 }
 
-func (m *Model) Stocks(ctx context.Context, sku uint32) (*StocksResponseSt, error) {
+func (d *Domain) Stocks(ctx context.Context, sku uint32) ([]*models.StockSt, error) {
 	// validate
-	if err := m.StocksValidate(sku); err != nil {
+	if err := d.StocksValidate(sku); err != nil {
 		return nil, err
 	}
 
-	return &StocksResponseSt{
-		Stocks: []StockSt{
-			{WarehouseID: 1, Count: 100},
-		},
-	}, nil
+	items, err := d.repo.StockList(ctx, models.StockListParsSt{Sku: &sku}, false)
+	if err != nil {
+		return nil, fmt.Errorf("repo.StockList: %w", err)
+	}
+
+	return items, nil
 }

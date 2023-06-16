@@ -2,38 +2,54 @@ package domain
 
 import (
 	"context"
+	"errors"
+	"fmt"
+
+	"route256/checkout/internal/domain/models"
 )
 
-func (m *Model) ListCartValidate(user int64) error {
+func (d *Domain) ListCartValidate(user int64) error {
 	if user <= 0 {
 		return ErrUserNotFound
 	}
 	return nil
 }
 
-func (m *Model) ListCart(ctx context.Context, user int64) (*CartSt, error) {
+func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, error) {
 	// validate
-	if err := m.ListCartValidate(user); err != nil {
+	if err := d.ListCartValidate(user); err != nil {
 		return nil, err
 	}
 
-	result := &CartSt{
-		Items: []*CartItemSt{
-			{SKU: 4678816, Count: 1},
-			{SKU: 4288068, Count: 2},
-			{SKU: 4487693, Count: 3},
-		},
-		TotalPrice: 10000,
+	// get cart
+	result, err := d.repo.CartGetByUsrId(ctx, user)
+	if err != nil {
+		if errors.Is(err, ErrCartNotFound) {
+			return &models.CartSt{
+				User:       user,
+				TotalPrice: 0,
+				Items:      []*models.CartItemSt{},
+			}, nil
+		}
+		return nil, fmt.Errorf("CartGetByUsrId: %w", err)
+	}
+
+	// get cart items
+	result.Items, err = d.repo.CartItemList(ctx, models.CartItemListParsSt{CartId: &result.Id})
+	if err != nil {
+		return nil, fmt.Errorf("CartItemList: %w", err)
 	}
 
 	// call ProductService to get products
+	result.TotalPrice = 0
 	for _, item := range result.Items {
-		product, err := m.productService.GetProduct(ctx, int64(item.SKU))
+		product, err := d.productService.GetProduct(ctx, int64(item.Sku))
 		if err != nil {
 			return nil, err
 		}
 		item.Name = product.Name
 		item.Price = product.Price
+		result.TotalPrice += product.Price * uint32(item.Count)
 	}
 
 	return result, nil

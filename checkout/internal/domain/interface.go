@@ -2,11 +2,13 @@ package domain
 
 import (
 	"context"
+
+	"route256/checkout/internal/domain/models"
 )
 
 type ILomsService interface {
 	Stocks(ctx context.Context, sku uint32) ([]StockSt, error)
-	CreateOrder(ctx context.Context, user int64, cart *CartSt) (int64, error)
+	CreateOrder(ctx context.Context, user int64, cart *models.CartSt) (int64, error)
 }
 
 type IProductService interface {

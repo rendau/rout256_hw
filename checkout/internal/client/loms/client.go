@@ -3,7 +3,9 @@ package loms
 import (
 	"context"
 	"fmt"
+
 	"route256/checkout/internal/domain"
+	"route256/checkout/internal/domain/models"
 	"route256/checkout/pkg/proto/loms_v1"
 
 	"google.golang.org/grpc"
@@ -42,7 +44,7 @@ func (c *Client) Stocks(ctx context.Context, sku uint32) ([]domain.StockSt, erro
 	return result, nil
 }
 
-func (c *Client) CreateOrder(ctx context.Context, user int64, cart *domain.CartSt) (int64, error) {
+func (c *Client) CreateOrder(ctx context.Context, user int64, cart *models.CartSt) (int64, error) {
 	requestObj := &loms_v1.CreateOrderRequest{
 		User:  user,
 		Items: make([]*loms_v1.Order, len(cart.Items)),
@@ -50,7 +52,7 @@ func (c *Client) CreateOrder(ctx context.Context, user int64, cart *domain.CartS
 
 	for i, v := range cart.Items {
 		requestObj.Items[i] = &loms_v1.Order{
-			Sku:   v.SKU,
+			Sku:   v.Sku,
 			Count: uint32(v.Count),
 		}
 	}

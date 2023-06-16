@@ -4,19 +4,21 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
 
+	dbPg "route256/libs/db/pg"
 	"route256/libs/grpcserver"
 	"route256/libs/httpserver"
 	"route256/libs/stopsignal"
 	"route256/loms/internal/domain"
 	"route256/loms/internal/handler"
+	repoPg "route256/loms/internal/repo/pg"
 	"route256/loms/pkg/proto/loms_v1"
-
-	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -25,10 +27,22 @@ func main() {
 		log.Fatalln("ERR: ", err)
 	}
 
-	model := domain.New()
+	db, err := dbPg.New(cfg.DbDsn)
+	if err != nil {
+		log.Fatalln("pg.New: ", err)
+	}
+
+	err = db.Migrate("migrations")
+	if err != nil {
+		log.Fatalln("db.Migrate: ", err)
+	}
+
+	repo := repoPg.New(db)
+
+	dm := domain.New(db, repo)
 
 	// grpc
-	grpcHandler := handler.New(model)
+	grpcHandler := handler.New(dm)
 	grpcSrv := grpcserver.New()
 	reflection.Register(grpcSrv.Server)
 	loms_v1.RegisterLomsServer(grpcSrv.Server, grpcHandler)
@@ -66,6 +80,10 @@ func main() {
 	log.Println("Shutdown service...")
 
 	if !grpcSrv.Shutdown() {
+		exitCode = 1
+	}
+
+	if !httpSrv.Shutdown(10 * time.Second) {
 		exitCode = 1
 	}
 

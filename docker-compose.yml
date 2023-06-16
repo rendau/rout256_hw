@@ -4,6 +4,7 @@ services:
     image: checkout
     build: ./checkout/
     environment:
+      - "DB_DSN=postgres://postgres:postgres@checkout_db:5432/postgres"
       - "GRPC_PORT=8080"
       - "HTTP_PORT=8180"
       - "SERVICES_LOMS_URL=loms:8081"
@@ -12,14 +13,31 @@ services:
     ports:
       - "8080:8080"
       - "8180:8180"
+
+  checkout_db:
+    image: postgres:15
+    environment:
+      - "POSTGRES_USER=postgres"
+      - "POSTGRES_PASSWORD=postgres"
+      - "POSTGRES_DB=postgres"
+
   loms:
     image: loms
     build: ./loms/
     environment:
+      - "DB_DSN=postgres://postgres:postgres@loms_db:5432/postgres"
       - "GRPC_PORT=8081"
       - "HTTP_PORT=8181"
     ports:
       - "8081:8081"
+
+  loms_db:
+    image: postgres:15
+    environment:
+      - "POSTGRES_USER=postgres"
+      - "POSTGRES_PASSWORD=postgres"
+      - "POSTGRES_DB=postgres"
+
   # notification:
   #   image: notification
   #   build: ./notification
