@@ -82,7 +82,9 @@ vendor-proto/validate:
 	mv vendor-proto/validate-repo/validate vendor-proto
 	rm -rf vendor-proto/validate-repo
 
-generate_checkout: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+generate_deps: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+
+generate_checkout:
 	mkdir -p pkg/proto/checkout_v1
 	$(PROTOC) -I api/proto/checkout_v1 -I vendor-proto \
 	--go_out pkg/proto/checkout_v1 --go_opt paths=source_relative \
@@ -91,7 +93,7 @@ generate_checkout: bin vendor-proto/google/api vendor-proto/google/protobuf vend
 	--validate_out="lang=go,paths=source_relative:pkg/proto/checkout_v1" \
 	api/proto/checkout_v1/checkout.proto
 
-generate_product_service: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+generate_product_service:
 	mkdir -p pkg/proto/product_service
 	$(PROTOC) -I api/proto/product_service -I vendor-proto \
 	--go_out pkg/proto/product_service --go_opt paths=source_relative \
@@ -100,7 +102,7 @@ generate_product_service: bin vendor-proto/google/api vendor-proto/google/protob
 	--validate_out="lang=go,paths=source_relative:pkg/proto/product_service" \
 	api/proto/product_service/product_service.proto
 
-generate_loms: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+generate_loms:
 	mkdir -p pkg/proto/loms_v1
 	$(PROTOC) -I api/proto/loms_v1 -I vendor-proto \
 	--go_out pkg/proto/loms_v1 --go_opt paths=source_relative \
@@ -110,3 +112,9 @@ generate_loms: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-p
 	api/proto/loms_v1/loms.proto
 
 generate: generate_checkout generate_product_service generate_loms
+
+migration-up:
+	goose -dir ./migrations postgres "postgres://localhost:5432/r256hw_checkout?sslmode=disable" up
+
+migration-down:
+	goose -dir ./migrations postgres "postgres://localhost:5432/r256hw_checkout?sslmode=disable" down

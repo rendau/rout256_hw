@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+
 	"route256/checkout/internal/domain"
 	"route256/checkout/pkg/proto/checkout_v1"
 
@@ -10,10 +11,10 @@ import (
 
 type Handler struct {
 	checkout_v1.UnimplementedCheckoutServer
-	Model *domain.Model
+	Model *domain.Domain
 }
 
-func New(model *domain.Model) *Handler {
+func New(model *domain.Domain) *Handler {
 	return &Handler{Model: model}
 }
 
@@ -44,7 +45,7 @@ func (h *Handler) ListCart(ctx context.Context, request *checkout_v1.ListCartReq
 	items := make([]*checkout_v1.ListCartResponseItem, len(cart.Items))
 	for i, item := range cart.Items {
 		items[i] = &checkout_v1.ListCartResponseItem{
-			Sku:   item.SKU,
+			Sku:   item.Sku,
 			Count: uint32(item.Count),
 			Name:  item.Name,
 			Price: item.Price,

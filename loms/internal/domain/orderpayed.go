@@ -2,18 +2,27 @@ package domain
 
 import (
 	"context"
+
+	"route256/libs/constant"
 )
 
-func (m *Model) OrderPayedValidate(orderID int64) error {
+func (d *Domain) OrderPayedValidate(orderID int64) error {
 	if orderID <= 0 {
 		return ErrOrderNotFound
 	}
 	return nil
 }
 
-func (m *Model) OrderPayed(ctx context.Context, orderID int64) error {
+func (d *Domain) OrderPayed(ctx context.Context, orderID int64) error {
+	var err error
+
 	// validate
-	if err := m.OrderPayedValidate(orderID); err != nil {
+	if err = d.OrderPayedValidate(orderID); err != nil {
+		return err
+	}
+
+	err = d.repo.OrderSetStatus(ctx, orderID, constant.OrderStatusPayed)
+	if err != nil {
 		return err
 	}
 

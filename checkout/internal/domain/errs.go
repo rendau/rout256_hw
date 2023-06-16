@@ -13,4 +13,5 @@ const (
 	ErrStockInsufficient = Err("stock_insufficient")
 	ErrSkuRequired       = Err("sku_required")
 	ErrCountRequired     = Err("count_required")
+	ErrCartNotFound      = Err("cart_not_found")
 )

@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	DbDsn    string `mapstructure:"db_dsn"`
 	GrpcPort string `mapstructure:"grpc_port"`
 	HttpPort string `mapstructure:"http_port"`
 	Services struct {
@@ -22,6 +23,7 @@ type ConfigService struct {
 }
 
 func ConfigLoad() (*Config, error) {
+	viper.SetDefault("db_dsn", "postgres://localhost:5432/r256hw_checkout?sslmode=disable")
 	viper.SetDefault("grpc_port", "8080")
 	viper.SetDefault("http_port", "8180")
 	viper.SetDefault("services.loms.url", "localhost:8081")

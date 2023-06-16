@@ -82,7 +82,10 @@ vendor-proto/validate:
 	mv vendor-proto/validate-repo/validate vendor-proto
 	rm -rf vendor-proto/validate-repo
 
-generate_loms: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+generate_deps: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-proto/validate
+
+
+generate:
 	mkdir -p pkg/proto/loms_v1
 	$(PROTOC) -I api/proto/loms_v1 -I vendor-proto \
 	--go_out pkg/proto/loms_v1 --go_opt paths=source_relative \
@@ -91,4 +94,8 @@ generate_loms: bin vendor-proto/google/api vendor-proto/google/protobuf vendor-p
 	--validate_out="lang=go,paths=source_relative:pkg/proto/loms_v1" \
 	api/proto/loms_v1/loms.proto
 
-generate: generate_loms
+migration-up:
+	goose -dir ./migrations postgres "postgres://localhost:5432/r256hw_loms?sslmode=disable" up
+
+migration-down:
+	goose -dir ./migrations postgres "postgres://localhost:5432/r256hw_loms?sslmode=disable" down

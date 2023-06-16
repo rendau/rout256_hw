@@ -2,31 +2,54 @@ package domain
 
 import (
 	"context"
+	"log"
+
+	"route256/checkout/internal/domain/models"
 )
 
-func (m *Model) PurchaseValidate(user int64) error {
+func (d *Domain) PurchaseValidate(user int64) error {
 	if user <= 0 {
 		return ErrUserNotFound
 	}
 	return nil
 }
 
-func (m *Model) Purchase(ctx context.Context, user int64) (int64, error) {
+func (d *Domain) Purchase(ctx context.Context, user int64) (int64, error) {
 	// validate
-	if err := m.PurchaseValidate(user); err != nil {
+	if err := d.PurchaseValidate(user); err != nil {
 		return 0, err
 	}
 
 	// get cart
-	cart, err := m.ListCart(ctx, user)
+	cart, err := d.repo.CartGetByUsrId(ctx, user)
+	if err != nil {
+		return 0, err
+	}
+
+	// get cart items
+	cart.Items, err = d.repo.CartItemList(ctx, models.CartItemListParsSt{
+		CartId: &cart.Id,
+	})
 	if err != nil {
 		return 0, err
 	}
 
 	// create order
-	orderID, err := m.lomsService.CreateOrder(ctx, user, cart)
+	orderID, err := d.lomsService.CreateOrder(ctx, user, cart)
 	if err != nil {
 		return 0, err
+	}
+
+	// remove cart items
+	err = d.repo.CartItemRemoveAllForCartId(ctx, cart.Id)
+	if err != nil {
+		log.Printf("error removing cart items: %v", err)
+	}
+
+	// remove cart
+	err = d.repo.CartRemove(ctx, cart.Id)
+	if err != nil {
+		log.Printf("error removing cart: %v", err)
 	}
 
 	return orderID, nil

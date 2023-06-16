@@ -2,27 +2,34 @@ package domain
 
 import (
 	"context"
+
+	"route256/loms/internal/domain/models"
 )
 
-func (m *Model) ListOrderValidate(orderID int64) error {
+func (d *Domain) ListOrderValidate(orderID int64) error {
 	if orderID <= 0 {
 		return ErrOrderNotFound
 	}
 	return nil
 }
 
-func (m *Model) ListOrder(ctx context.Context, orderID int64) (*OrderSt, error) {
+func (d *Domain) ListOrder(ctx context.Context, orderID int64) (*models.OrderSt, error) {
 	// validate
-	if err := m.ListOrderValidate(orderID); err != nil {
+	if err := d.ListOrderValidate(orderID); err != nil {
 		return nil, err
 	}
 
-	return &OrderSt{
-		Status: "new",
-		User:   7,
-		Items: []OrderItemSt{
-			{Sku: 3, Count: 2},
-			{Sku: 4, Count: 1},
-		},
-	}, nil
+	// get order
+	order, err := d.repo.OrderGet(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	// get order items
+	order.Items, err = d.repo.OrderGetItems(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	return order, nil
 }

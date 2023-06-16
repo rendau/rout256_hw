@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"route256/loms/internal/domain"
+	"route256/loms/internal/domain/models"
 	"route256/loms/pkg/proto/loms_v1"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -11,10 +12,10 @@ import (
 
 type Handler struct {
 	loms_v1.UnimplementedLomsServer
-	Model *domain.Model
+	Model *domain.Domain
 }
 
-func New(model *domain.Model) *Handler {
+func New(model *domain.Domain) *Handler {
 	return &Handler{Model: model}
 }
 
@@ -23,18 +24,15 @@ func (h *Handler) CancelOrder(ctx context.Context, request *loms_v1.CancelOrderR
 }
 
 func (h *Handler) CreateOrder(ctx context.Context, request *loms_v1.CreateOrderRequest) (*loms_v1.CreateOrderResponse, error) {
-	reqObj := &domain.CreateOrderRequestSt{
-		User:  request.User,
-		Items: make([]domain.CreateOrderRequestItemSt, len(request.Items)),
-	}
+	items := make([]*models.OrderItemSt, len(request.Items))
 	for i, item := range request.Items {
-		reqObj.Items[i] = domain.CreateOrderRequestItemSt{
-			SKU:   item.Sku,
+		items[i] = &models.OrderItemSt{
+			Sku:   item.Sku,
 			Count: uint16(item.Count),
 		}
 	}
 
-	orderID, err := h.Model.CreateOrder(ctx, reqObj)
+	orderID, err := h.Model.CreateOrder(ctx, request.User, items)
 
 	return &loms_v1.CreateOrderResponse{OrderID: orderID}, err
 }
@@ -66,19 +64,37 @@ func (h *Handler) OrderPayed(ctx context.Context, request *loms_v1.OrderPayedReq
 }
 
 func (h *Handler) Stocks(ctx context.Context, request *loms_v1.StocksRequest) (*loms_v1.StocksResponse, error) {
-	result, err := h.Model.Stocks(ctx, request.Sku)
+	items, err := h.Model.Stocks(ctx, request.Sku)
 	if err != nil {
 		return nil, err
 	}
 
-	stocks := make([]*loms_v1.Stock, len(result.Stocks))
+	result := make([]*loms_v1.Stock, len(items))
 
-	for i, stock := range result.Stocks {
-		stocks[i] = &loms_v1.Stock{
-			WarehouseID: stock.WarehouseID,
-			Count:       stock.Count,
+	for i, item := range items {
+		result[i] = &loms_v1.Stock{
+			WarehouseID: item.WarehouseID,
+			Count:       item.Count,
 		}
 	}
 
-	return &loms_v1.StocksResponse{Stocks: stocks}, nil
+	return &loms_v1.StocksResponse{Stocks: result}, nil
+}
+
+func (h *Handler) StockAdd(ctx context.Context, request *loms_v1.StockAddRequest) (*emptypb.Empty, error) {
+	err := h.Model.StockAdd(ctx, request.WarehouseId, request.Sku, request.Count)
+	if err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (h *Handler) StockRemove(ctx context.Context, request *loms_v1.StockRemoveRequest) (*emptypb.Empty, error) {
+	err := h.Model.StockRemove(ctx, request.WarehouseId, request.Sku)
+	if err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
 }

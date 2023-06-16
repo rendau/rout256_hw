@@ -15,7 +15,9 @@ import (
 	"route256/checkout/internal/client/productservice"
 	"route256/checkout/internal/domain"
 	"route256/checkout/internal/handler"
+	repoPg "route256/checkout/internal/repo/pg"
 	"route256/checkout/pkg/proto/checkout_v1"
+	dbPg "route256/libs/db/pg"
 	"route256/libs/grpcserver"
 	"route256/libs/httpserver"
 	"route256/libs/stopsignal"
@@ -27,6 +29,18 @@ func main() {
 		log.Fatalln("ERR: ", err)
 	}
 
+	db, err := dbPg.New(cfg.DbDsn)
+	if err != nil {
+		log.Fatalln("pg.New: ", err)
+	}
+
+	err = db.Migrate("migrations")
+	if err != nil {
+		log.Fatalln("db.Migrate: ", err)
+	}
+
+	repo := repoPg.New(db)
+
 	lomsClient, err := loms.New(cfg.Services.Loms.Url)
 	if err != nil {
 		log.Fatalln("loms.New: ", err)
@@ -37,10 +51,10 @@ func main() {
 		log.Fatalln("productservice.New: ", err)
 	}
 
-	model := domain.New(lomsClient, productService)
+	dm := domain.New(db, repo, lomsClient, productService)
 
 	// grpc
-	grpcHandler := handler.New(model)
+	grpcHandler := handler.New(dm)
 	grpcSrv := grpcserver.New()
 	reflection.Register(grpcSrv.Server)
 	checkout_v1.RegisterCheckoutServer(grpcSrv.Server, grpcHandler)

@@ -38,6 +38,8 @@ service Loms {
       body: "*"
     };
   };
+  rpc StockAdd(StockAddRequest) returns (google.protobuf.Empty);
+  rpc StockRemove(StockRemoveRequest) returns (google.protobuf.Empty);
 }
 
 message CancelOrderRequest {
@@ -85,41 +87,13 @@ message Stock {
   uint64 count = 2;
 }
 
-
-// ----------------------------
-
-message AddToCartRequest {
-  int64 user = 1;
+message StockAddRequest {
+  int64 warehouseId = 1;
   uint32 sku = 2;
-  uint32 count = 3;
+  uint64 count = 3;
 }
 
-message DeleteFromCartRequest {
-  int64 user = 1;
+message StockRemoveRequest {
+  int64 warehouseId = 1;
   uint32 sku = 2;
-  uint32 count = 3;
-}
-
-message ListCartRequest {
-  int64 user = 1;
-}
-
-message ListCartResponse {
-  repeated ListCartResponseItem items = 1;
-  uint32 totalPrice = 2;
-}
-
-message ListCartResponseItem {
-  uint32 sku = 1;
-  uint32 count = 2;
-  string name = 3;
-  uint32 price = 4;
-}
-
-message PurchaseRequest {
-  int64 user = 1;
-}
-
-message PurchaseResponse {
-  int64 orderID = 1;
 }
