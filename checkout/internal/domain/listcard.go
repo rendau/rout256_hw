@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"route256/checkout/internal/domain/models"
+	"route256/libs/workerpool"
 )
 
 func (d *Domain) ListCartValidate(user int64) error {
@@ -40,16 +41,31 @@ func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, erro
 		return nil, fmt.Errorf("CartItemList: %w", err)
 	}
 
-	// call ProductService to get products
+	// create worker pool
+	wp := workerpool.NewWorkerPool(
+		ctx,
+		5,
+		func(ctx context.Context, cartItem *models.CartItemSt) (*models.ProductSt, error) {
+			return d.productService.GetProduct(ctx, int64(cartItem.Sku))
+		},
+	)
+
 	result.TotalPrice = 0
-	for _, item := range result.Items {
-		product, err := d.productService.GetProduct(ctx, int64(item.Sku))
-		if err != nil {
-			return nil, err
+
+	go func() {
+		for res := range wp.ResultChan() {
+			if res.Err != nil {
+				continue
+			}
+			res.Task.Val.Name = res.Val.Name
+			res.Task.Val.Price = res.Val.Price
+			result.TotalPrice += res.Val.Price * uint32(res.Task.Val.Count)
 		}
-		item.Name = product.Name
-		item.Price = product.Price
-		result.TotalPrice += product.Price * uint32(item.Count)
+	}()
+
+	// add tasks
+	for _, item := range result.Items {
+		wp.AddTask(ctx, item)
 	}
 
 	return result, nil

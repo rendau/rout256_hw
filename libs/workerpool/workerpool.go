@@ -5,39 +5,29 @@ import (
 	"sync"
 )
 
-type TaskVal struct {
-	Val int
+type Task[T any] struct {
+	Val *T
 }
 
-type ResultVal struct {
-	Val int
-}
-
-// --------------------------------------------
-
-type Task struct {
-	Ctx context.Context
-	Val *TaskVal
-}
-
-type Result struct {
-	Task *Task
-	Val  *ResultVal
+type Result[T, R any] struct {
+	Task *Task[T]
+	Val  *R
 	Err  error
 }
 
-type WorkerPool struct {
+type WorkerPool[T, R any] struct {
 	wg         *sync.WaitGroup
-	taskChan   chan *Task
-	resultChan chan *Result
+	taskChan   chan *Task[T]
+	resultChan chan *Result[T, R]
 }
 
-func NewWorkerPool(globalCtx context.Context, workerCount int,
-	hFun func(ctx context.Context, val *TaskVal) (*ResultVal, error),
-) *WorkerPool {
+func NewWorkerPool[T, R any](ctx context.Context, workerCount int,
+	hFun func(ctx context.Context, val *T) (*R, context.CancelFunc, error),
+) *WorkerPool[T, R] {
+	internalCtx, internalCtxCancel := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
-	taskChan := make(chan *Task)
-	resultChan := make(chan *Result)
+	taskChan := make(chan *Task[T])
+	resultChan := make(chan *Result[T, R])
 
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
@@ -45,23 +35,23 @@ func NewWorkerPool(globalCtx context.Context, workerCount int,
 			defer wg.Done()
 
 			for task := range taskChan {
-				if globalCtx.Err() != nil {
-					resultChan <- &Result{
+				if ctx.Err() != nil {
+					resultChan <- &Result[T, R]{
 						Task: task,
-						Err:  globalCtx.Err(),
+						Err:  ctx.Err(),
 					}
 					continue // мы должны дочитать все задачи из taskChan
 				}
-				if task.Ctx.Err() != nil {
-					resultChan <- &Result{
+				if internalCtx.Err() != nil {
+					resultChan <- &Result[T, R]{
 						Task: task,
-						Err:  task.Ctx.Err(),
+						Err:  internalCtx.Err(),
 					}
 					continue // мы должны дочитать все задачи из taskChan
 				}
 
-				val, err := hFun(task.Ctx, task.Val)
-				resultChan <- &Result{
+				val, err := hFun(ctx, task.Val)
+				resultChan <- &Result[T, R]{
 					Task: task,
 					Val:  val,
 					Err:  err,
@@ -75,20 +65,19 @@ func NewWorkerPool(globalCtx context.Context, workerCount int,
 		close(resultChan)
 	}()
 
-	return &WorkerPool{
+	return &WorkerPool[T, R]{
 		wg:         wg,
 		taskChan:   taskChan,
 		resultChan: resultChan,
 	}
 }
 
-func (w *WorkerPool) AddTask(ctx context.Context, val *TaskVal) {
-	w.taskChan <- &Task{
-		Ctx: ctx,
+func (w *WorkerPool[T, R]) AddTask(ctx context.Context, val *T) {
+	w.taskChan <- &Task[T]{
 		Val: val,
 	}
 }
 
-func (w *WorkerPool) ResultChan() <-chan *Result {
+func (w *WorkerPool[T, R]) ResultChan() <-chan *Result[T, R] {
 	return w.resultChan
 }
