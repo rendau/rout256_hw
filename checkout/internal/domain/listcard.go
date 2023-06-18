@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"route256/checkout/internal/domain/models"
-	"route256/libs/workerpool"
+	"route256/checkout/internal/domain/workerpool"
 )
 
 func (d *Domain) ListCartValidate(user int64) error {
@@ -43,8 +43,8 @@ func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, erro
 		return nil, fmt.Errorf("CartItemList: %w", err)
 	}
 
-	// create worker pool
-	err = workerpool.NewWorkerPool(
+	// start worker pool
+	workerpool.NewWorkerPool(
 		ctx,
 		5,
 		func(ctx context.Context, cartItem *models.CartItemSt) (*models.ProductSt, error) {
@@ -65,7 +65,8 @@ func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, erro
 			task.Price = result.Price
 			return nil
 		},
-	).Wait()
+	)
+
 	if err != nil {
 		return nil, err
 	}

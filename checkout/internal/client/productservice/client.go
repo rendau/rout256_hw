@@ -6,14 +6,19 @@ import (
 
 	"route256/checkout/internal/domain/models"
 	"route256/checkout/pkg/proto/product_service"
+	"route256/libs/ratelimiter"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const GetProductRateLimit = 10
+
 type Client struct {
 	client product_service.ProductServiceClient
 	token  string
+
+	getProductRateLimiter *ratelimiter.RateLimiter
 }
 
 func New(uri, token string) (*Client, error) {
@@ -23,8 +28,9 @@ func New(uri, token string) (*Client, error) {
 	}
 
 	return &Client{
-		client: product_service.NewProductServiceClient(conn),
-		token:  token,
+		client:                product_service.NewProductServiceClient(conn),
+		token:                 token,
+		getProductRateLimiter: ratelimiter.NewRateLimiter(GetProductRateLimit),
 	}, nil
 }
 
@@ -47,6 +53,8 @@ func (c *Client) ListSKUs(ctx context.Context, startAfterSku, Count int64) ([]in
 }
 
 func (c *Client) GetProduct(ctx context.Context, sku int64) (*models.ProductSt, error) {
+	c.getProductRateLimiter.Take()
+
 	responseObj, err := c.client.GetProduct(ctx, &product_service.GetProductRequest{
 		Token: c.token,
 		Sku:   uint32(sku),
