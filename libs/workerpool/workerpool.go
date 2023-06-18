@@ -3,6 +3,7 @@ package workerpool
 import (
 	"context"
 	"sync"
+	"time"
 )
 
 type Task[T any] struct {
@@ -22,6 +23,8 @@ type WorkerPool[T, R any] struct {
 	taskChan   chan *Task[T]
 	resultChan chan *Result[T, R]
 	finishChan chan error
+	startTime  time.Time
+	duration   time.Duration
 }
 
 func NewWorkerPool[T, R any](
@@ -40,6 +43,7 @@ func NewWorkerPool[T, R any](
 		taskChan:   make(chan *Task[T], 1),
 		resultChan: make(chan *Result[T, R], 1),
 		finishChan: make(chan error, 1),
+		startTime:  time.Now(),
 	}
 
 	// запускаем воркеры
@@ -70,7 +74,7 @@ func (w *WorkerPool[T, R]) worker(serveFun func(ctx context.Context, val *T) (*R
 	defer w.wg.Done()
 
 	var task *Task[T]
-	var closed bool
+	var ok bool
 
 	for {
 		select {
@@ -80,8 +84,8 @@ func (w *WorkerPool[T, R]) worker(serveFun func(ctx context.Context, val *T) (*R
 			select {
 			case <-w.ctx.Done():
 				return
-			case task, closed = <-w.taskChan:
-				if closed {
+			case task, ok = <-w.taskChan:
+				if !ok {
 					return
 				}
 
@@ -117,8 +121,12 @@ func (w *WorkerPool[T, R]) resultHandler(resultFun func(task *T, result *R, err 
 	var err error
 
 	defer func() {
+		w.duration = time.Since(w.startTime)
 		close(w.finishChan)
 	}()
+
+	var res *Result[T, R]
+	var ok bool
 
 	for {
 		select {
@@ -128,12 +136,12 @@ func (w *WorkerPool[T, R]) resultHandler(resultFun func(task *T, result *R, err 
 			select {
 			case <-w.ctx.Done():
 				return
-			case res, closed := <-w.resultChan:
-				if closed {
+			case res, ok = <-w.resultChan:
+				if !ok {
 					return
 				}
 				err = resultFun(res.Task.Val, res.Val, res.Err)
-				if err != nil {
+				if err != nil { // если resultFun вернул ошибку, то отменяем все задачи и возвращаем эту ошибку
 					w.cancel()
 					w.finishChan <- err
 					return
@@ -149,4 +157,8 @@ func (w *WorkerPool[T, R]) Cancel() {
 
 func (w *WorkerPool[T, R]) Wait() error {
 	return <-w.finishChan
+}
+
+func (w *WorkerPool[T, R]) GetDuration() time.Duration {
+	return w.duration
 }
