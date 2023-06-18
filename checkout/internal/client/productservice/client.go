@@ -3,7 +3,8 @@ package productservice
 import (
 	"context"
 	"fmt"
-	"route256/checkout/internal/domain"
+
+	"route256/checkout/internal/domain/models"
 	"route256/checkout/pkg/proto/product_service"
 
 	"google.golang.org/grpc"
@@ -45,7 +46,7 @@ func (c *Client) ListSKUs(ctx context.Context, startAfterSku, Count int64) ([]in
 	return result, nil
 }
 
-func (c *Client) GetProduct(ctx context.Context, sku int64) (*domain.ProductSt, error) {
+func (c *Client) GetProduct(ctx context.Context, sku int64) (*models.ProductSt, error) {
 	responseObj, err := c.client.GetProduct(ctx, &product_service.GetProductRequest{
 		Token: c.token,
 		Sku:   uint32(sku),
@@ -54,7 +55,7 @@ func (c *Client) GetProduct(ctx context.Context, sku int64) (*domain.ProductSt, 
 		return nil, fmt.Errorf("product_service: GetProduct: %w", err)
 	}
 
-	return &domain.ProductSt{
+	return &models.ProductSt{
 		Name:  responseObj.Name,
 		Price: responseObj.Price,
 	}, nil

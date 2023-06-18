@@ -35,6 +35,8 @@ func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, erro
 		return nil, fmt.Errorf("CartGetByUsrId: %w", err)
 	}
 
+	result.TotalPrice = 0
+
 	// get cart items
 	result.Items, err = d.repo.CartItemList(ctx, models.CartItemListParsSt{CartId: &result.Id})
 	if err != nil {
@@ -42,30 +44,30 @@ func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, erro
 	}
 
 	// create worker pool
-	wp := workerpool.NewWorkerPool(
+	err = workerpool.NewWorkerPool(
 		ctx,
 		5,
 		func(ctx context.Context, cartItem *models.CartItemSt) (*models.ProductSt, error) {
 			return d.productService.GetProduct(ctx, int64(cartItem.Sku))
 		},
-	)
-
-	result.TotalPrice = 0
-
-	go func() {
-		for res := range wp.ResultChan() {
-			if res.Err != nil {
-				continue
+		func(add func(val *models.CartItemSt) bool) {
+			for _, item := range result.Items {
+				if !add(item) {
+					return
+				}
 			}
-			res.Task.Val.Name = res.Val.Name
-			res.Task.Val.Price = res.Val.Price
-			result.TotalPrice += res.Val.Price * uint32(res.Task.Val.Count)
-		}
-	}()
-
-	// add tasks
-	for _, item := range result.Items {
-		wp.AddTask(ctx, item)
+		},
+		func(task *models.CartItemSt, result *models.ProductSt, err error) error {
+			if err != nil {
+				return err
+			}
+			task.Name = result.Name
+			task.Price = result.Price
+			return nil
+		},
+	).Wait()
+	if err != nil {
+		return nil, err
 	}
 
 	return result, nil
