@@ -6,6 +6,7 @@ import (
 	"route256/checkout/internal/domain/models"
 )
 
+//go:generate mockery --name Repo --output ./mock --filename repo.go
 type Repo interface {
 	// Cart
 	CartList(ctx context.Context, pars models.CartListParsSt) ([]*models.CartSt, error)

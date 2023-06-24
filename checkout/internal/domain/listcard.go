@@ -44,7 +44,7 @@ func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, erro
 	}
 
 	// start worker pool
-	workerpool.NewWorkerPool(
+	err = workerpool.NewWorkerPool(
 		ctx,
 		5,
 		func(ctx context.Context, cartItem *models.CartItemSt) (*models.ProductSt, error) {
@@ -65,10 +65,14 @@ func (d *Domain) ListCart(ctx context.Context, user int64) (*models.CartSt, erro
 			task.Price = result.Price
 			return nil
 		},
-	)
-
+	).Wait()
 	if err != nil {
 		return nil, err
+	}
+
+	// calculate total price
+	for _, item := range result.Items {
+		result.TotalPrice += item.Price * uint32(item.Count)
 	}
 
 	return result, nil

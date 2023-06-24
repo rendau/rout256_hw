@@ -1,4 +1,4 @@
-package domain
+package models
 
 type StockSt struct {
 	WarehouseID int64

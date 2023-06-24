@@ -40,7 +40,7 @@ func NewWorkerPool[T, R any](
 		ctx:        ctx,
 		cancel:     cancel,
 		wg:         &sync.WaitGroup{},
-		taskChan:   make(chan *Task[T], 1),
+		taskChan:   make(chan *Task[T]),
 		resultChan: make(chan *Result[T, R], 1),
 		finishChan: make(chan error, 1),
 		startTime:  time.Now(),

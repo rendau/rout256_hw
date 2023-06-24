@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"route256/checkout/internal/domain"
 	"route256/checkout/internal/domain/models"
 	"route256/checkout/pkg/proto/loms_v1"
 
@@ -27,15 +26,15 @@ func New(uri string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Stocks(ctx context.Context, sku uint32) ([]domain.StockSt, error) {
+func (c *Client) Stocks(ctx context.Context, sku uint32) ([]models.StockSt, error) {
 	responseObj, err := c.client.Stocks(ctx, &loms_v1.StocksRequest{Sku: sku})
 	if err != nil {
 		return nil, fmt.Errorf("loms: Stocks: %w", err)
 	}
 
-	result := make([]domain.StockSt, 0, len(responseObj.Stocks))
+	result := make([]models.StockSt, 0, len(responseObj.Stocks))
 	for _, v := range responseObj.Stocks {
-		result = append(result, domain.StockSt{
+		result = append(result, models.StockSt{
 			WarehouseID: v.WarehouseID,
 			Count:       v.Count,
 		})
