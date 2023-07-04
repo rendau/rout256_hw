@@ -13,6 +13,8 @@ type Config struct {
 	HttpPort string `mapstructure:"http_port"`
 	Services struct {
 	} `mapstructure:"services"`
+	OrderStatusChangeNotifyBrokers []string `mapstructure:"order_status_change_notify_brokers"`
+	orderStatusChangeNotifierTopic string   `mapstructure:"order_status_change_notifier_topic"`
 }
 
 func ConfigLoad() (*Config, error) {

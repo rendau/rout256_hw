@@ -74,6 +74,15 @@ func (d *Domain) CreateOrder(ctx context.Context, userId int64, items []*models.
 			}
 		}
 
+		// send notification
+		err = d.NotificationSendOrderStatusChange(models.NotificationOrderStatusChangeSt{
+			OrderID: newId,
+			Status:  constant.OrderStatusNew,
+		})
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 

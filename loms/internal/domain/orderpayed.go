@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"route256/loms/internal/domain/models"
 
 	"route256/libs/constant"
 )
@@ -22,6 +23,15 @@ func (d *Domain) OrderPayed(ctx context.Context, orderID int64) error {
 	}
 
 	err = d.repo.OrderSetStatus(ctx, orderID, constant.OrderStatusPayed)
+	if err != nil {
+		return err
+	}
+
+	// send notification
+	err = d.NotificationSendOrderStatusChange(models.NotificationOrderStatusChangeSt{
+		OrderID: orderID,
+		Status:  constant.OrderStatusPayed,
+	})
 	if err != nil {
 		return err
 	}

@@ -4,21 +4,21 @@ import (
 	"context"
 	"log"
 	"os"
+	dbPg "route256/libs/db/pg"
+	"route256/libs/grpcserver"
+	"route256/libs/httpserver"
+	"route256/libs/kafka_producer"
+	"route256/libs/stopsignal"
+	"route256/loms/internal/domain"
+	"route256/loms/internal/handler"
+	repoPg "route256/loms/internal/repo/pg"
+	"route256/loms/pkg/proto/loms_v1"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
-
-	dbPg "route256/libs/db/pg"
-	"route256/libs/grpcserver"
-	"route256/libs/httpserver"
-	"route256/libs/stopsignal"
-	"route256/loms/internal/domain"
-	"route256/loms/internal/handler"
-	repoPg "route256/loms/internal/repo/pg"
-	"route256/loms/pkg/proto/loms_v1"
 )
 
 func main() {
@@ -39,7 +39,21 @@ func main() {
 
 	repo := repoPg.New(db)
 
-	dm := domain.New(db, repo)
+	var eventProducerOrderStatusChange domain.IEventProducer = nil
+
+	if len(cfg.OrderStatusChangeNotifyBrokers) > 0 && cfg.orderStatusChangeNotifierTopic != "" {
+		eventProducerOrderStatusChange, err = kafka_producer.NewKafkaProducer(kafka_producer.KafkaProducerConfig{
+			Brokers:        cfg.OrderStatusChangeNotifyBrokers,
+			Topic:          cfg.orderStatusChangeNotifierTopic,
+			Compress:       false,
+			AssuranceLevel: kafka_producer.AssuranceLevelExactlyOnce,
+		})
+		if err != nil {
+			log.Fatalln("kafka_producer.NewKafkaProducer: ", err)
+		}
+	}
+
+	dm := domain.New(db, repo, eventProducerOrderStatusChange)
 
 	// grpc
 	grpcHandler := handler.New(dm)

@@ -69,5 +69,14 @@ func (d *Domain) CancelOrder(ctx context.Context, orderID int64) error {
 		return err
 	}
 
+	// send notification
+	err = d.NotificationSendOrderStatusChange(models.NotificationOrderStatusChangeSt{
+		OrderID: orderID,
+		Status:  constant.OrderStatusCancelled,
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

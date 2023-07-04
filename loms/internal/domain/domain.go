@@ -6,13 +6,15 @@ import (
 )
 
 type Domain struct {
-	db   db.Transaction
-	repo repo.Repo
+	db                             db.Transaction
+	repo                           repo.Repo
+	eventProducerOrderStatusChange IEventProducer
 }
 
-func New(db db.Transaction, repo repo.Repo) *Domain {
+func New(db db.Transaction, repo repo.Repo, eventProducerOrderStatusChange IEventProducer) *Domain {
 	return &Domain{
-		db:   db,
-		repo: repo,
+		db:                             db,
+		repo:                           repo,
+		eventProducerOrderStatusChange: eventProducerOrderStatusChange,
 	}
 }
