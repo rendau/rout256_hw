@@ -6,19 +6,17 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-type assuranceLevel string
-
 const (
-	AssuranceLevelAtLeastOnce assuranceLevel = "at_least_once"
-	AssuranceLevelAtMostOnce  assuranceLevel = "at_most_once"
-	AssuranceLevelExactlyOnce assuranceLevel = "exactly_once"
+	AssuranceLevelAtLeastOnce = "at_least_once"
+	AssuranceLevelAtMostOnce  = "at_most_once"
+	AssuranceLevelExactlyOnce = "exactly_once"
 )
 
 type KafkaProducerConfig struct {
 	Brokers        []string
 	Topic          string
 	Compress       bool
-	AssuranceLevel assuranceLevel
+	AssuranceLevel string
 }
 
 type KafkaProducer struct {
