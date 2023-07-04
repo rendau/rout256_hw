@@ -51,7 +51,7 @@ func main() {
 		log.Fatalln("productservice.New: ", err)
 	}
 
-	dm := domain.New(db, repo, lomsClient, productService)
+	dm := domain.New(repo, lomsClient, productService)
 
 	// grpc
 	grpcHandler := handler.New(dm)
