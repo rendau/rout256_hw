@@ -3,27 +3,29 @@ package kafka_consumer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Shopify/sarama"
 )
 
 type KafkaConsumerConfig struct {
-	Context              context.Context
-	GroupId              string
-	Brokers              []string
-	Topic                string
-	Handler              func(ctx context.Context, topic string, msg []byte) bool
-	HandlerRetryInterval time.Duration
+	Context       context.Context
+	GroupId       string
+	Brokers       []string
+	Topic         string
+	Handler       func(ctx context.Context, topic string, msg []byte) bool
+	RetryInterval time.Duration
 }
 
 type KafkaConsumer struct {
-	p                    sarama.ConsumerGroup
-	Context              context.Context
-	ContextCancel        context.CancelFunc
-	Topic                string
-	Handler              func(ctx context.Context, topic string, msg []byte) bool
-	HandlerRetryInterval time.Duration
+	cg            sarama.ConsumerGroup
+	Context       context.Context
+	ContextCancel context.CancelFunc
+	Topic         string
+	Handler       func(ctx context.Context, topic string, msg []byte) bool
+	RetryInterval time.Duration
+	wg            *sync.WaitGroup
 }
 
 func NewKafkaConsumer(cfg KafkaConsumerConfig) (*KafkaConsumer, error) {
@@ -34,31 +36,54 @@ func NewKafkaConsumer(cfg KafkaConsumerConfig) (*KafkaConsumer, error) {
 	config.Consumer.Offsets.AutoCommit.Interval = 5 * time.Second
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	// create consumer
-	p, err := sarama.NewConsumerGroup(cfg.Brokers, cfg.GroupId, config)
+	// create kafka consumer group
+	cg, err := sarama.NewConsumerGroup(cfg.Brokers, cfg.GroupId, config)
 	if err != nil {
 		return nil, fmt.Errorf("create kafka consumer: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(cfg.Context)
-
-	if cfg.HandlerRetryInterval == 0 {
-		cfg.HandlerRetryInterval = 2 * time.Second
+	if cfg.RetryInterval == 0 {
+		cfg.RetryInterval = 2 * time.Second
 	}
 
+	ctx, cancel := context.WithCancel(cfg.Context)
+	wg := &sync.WaitGroup{}
+
 	return &KafkaConsumer{
-		p:                    p,
-		Context:              ctx,
-		ContextCancel:        cancel,
-		Topic:                cfg.Topic,
-		Handler:              cfg.Handler,
-		HandlerRetryInterval: cfg.HandlerRetryInterval,
+		cg:            cg,
+		Context:       ctx,
+		ContextCancel: cancel,
+		Topic:         cfg.Topic,
+		Handler:       cfg.Handler,
+		RetryInterval: cfg.RetryInterval,
+		wg:            wg,
 	}, nil
 }
 
-func (o *KafkaConsumer) Stop() error {
+func (o *KafkaConsumer) Start() {
+	o.wg.Add(1)
+	go o.consumeRoutine()
+}
+
+func (o *KafkaConsumer) Stop() {
 	o.ContextCancel()
-	return o.p.Close()
+	_ = o.cg.Close()
+	o.wg.Wait()
+}
+
+func (o *KafkaConsumer) consumeRoutine() {
+	defer o.wg.Done()
+
+	var err error
+
+	for {
+		err = o.cg.Consume(o.Context, []string{o.Topic}, o)
+		if err != nil {
+			fmt.Println("Error occurred on consume:", err)
+		}
+
+		sleepWithContext(o.Context, o.RetryInterval)
+	}
 }
 
 // private methods for ConsumerGroupHandler interface:
@@ -83,15 +108,14 @@ func (o *KafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 			if !ok {
 				return nil
 			}
-			if o.consumeClaimMessage(msg, session) != nil {
+			if o.handleMessage(msg, session) != nil {
 				return nil
 			}
 		}
 	}
 }
 
-func (o *KafkaConsumer) consumeClaimMessage(msg *sarama.ConsumerMessage, session sarama.ConsumerGroupSession) error {
-	var timer *time.Timer
+func (o *KafkaConsumer) handleMessage(msg *sarama.ConsumerMessage, session sarama.ConsumerGroupSession) error {
 	ctx := session.Context()
 	for {
 		select {
@@ -102,15 +126,19 @@ func (o *KafkaConsumer) consumeClaimMessage(msg *sarama.ConsumerMessage, session
 				session.MarkMessage(msg, "")
 				return nil
 			} else {
-				timer = time.NewTimer(o.HandlerRetryInterval)
-				select {
-				case <-ctx.Done():
-					if !timer.Stop() {
-						<-timer.C
-					}
-				case <-timer.C:
-				}
+				sleepWithContext(ctx, o.RetryInterval)
 			}
 		}
+	}
+}
+
+func sleepWithContext(ctx context.Context, dur time.Duration) {
+	timer := time.NewTimer(dur)
+	select {
+	case <-ctx.Done():
+		if !timer.Stop() {
+			<-timer.C
+		}
+	case <-timer.C:
 	}
 }
