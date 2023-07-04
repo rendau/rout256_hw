@@ -16,6 +16,7 @@ type KafkaConsumerConfig struct {
 	Topic         string
 	Handler       func(ctx context.Context, topic string, msg []byte) bool
 	RetryInterval time.Duration
+	SkipUnread    bool
 }
 
 type KafkaConsumer struct {
@@ -34,7 +35,11 @@ func NewKafkaConsumer(cfg KafkaConsumerConfig) (*KafkaConsumer, error) {
 	config.Consumer.Return.Errors = false
 	config.Consumer.Offsets.AutoCommit.Enable = true
 	config.Consumer.Offsets.AutoCommit.Interval = 5 * time.Second
-	config.Consumer.Offsets.Initial = sarama.OffsetOldest
+	if cfg.SkipUnread {
+		config.Consumer.Offsets.Initial = sarama.OffsetNewest
+	} else {
+		config.Consumer.Offsets.Initial = sarama.OffsetOldest
+	}
 
 	// create kafka consumer group
 	cg, err := sarama.NewConsumerGroup(cfg.Brokers, cfg.GroupId, config)
@@ -66,8 +71,8 @@ func (o *KafkaConsumer) Start() {
 }
 
 func (o *KafkaConsumer) Stop() {
+	//_ = o.cg.Close() // sarama has a bug https://github.com/Shopify/sarama/issues/1351
 	o.ContextCancel()
-	_ = o.cg.Close()
 	o.wg.Wait()
 }
 
@@ -82,7 +87,9 @@ func (o *KafkaConsumer) consumeRoutine() {
 			fmt.Println("Error occurred on consume:", err)
 		}
 
-		sleepWithContext(o.Context, o.RetryInterval)
+		if !sleepWithContext(o.Context, o.RetryInterval) {
+			return
+		}
 	}
 }
 
@@ -116,7 +123,7 @@ func (o *KafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 }
 
 func (o *KafkaConsumer) handleMessage(msg *sarama.ConsumerMessage, session sarama.ConsumerGroupSession) error {
-	ctx := session.Context()
+	ctx := o.Context
 	for {
 		select {
 		case <-ctx.Done():
@@ -126,19 +133,23 @@ func (o *KafkaConsumer) handleMessage(msg *sarama.ConsumerMessage, session saram
 				session.MarkMessage(msg, "")
 				return nil
 			} else {
-				sleepWithContext(ctx, o.RetryInterval)
+				if !sleepWithContext(ctx, o.RetryInterval) {
+					return nil
+				}
 			}
 		}
 	}
 }
 
-func sleepWithContext(ctx context.Context, dur time.Duration) {
+func sleepWithContext(ctx context.Context, dur time.Duration) bool {
 	timer := time.NewTimer(dur)
 	select {
 	case <-ctx.Done():
 		if !timer.Stop() {
 			<-timer.C
 		}
+		return false
 	case <-timer.C:
+		return true
 	}
 }

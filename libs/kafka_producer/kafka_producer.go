@@ -29,6 +29,7 @@ type KafkaProducer struct {
 func NewKafkaProducer(cfg KafkaProducerConfig) (*KafkaProducer, error) {
 	config := sarama.NewConfig()
 
+	config.Producer.Return.Successes = true
 	config.Producer.Partitioner = sarama.NewHashPartitioner
 
 	// assurance level

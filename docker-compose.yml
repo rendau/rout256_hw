@@ -4,12 +4,12 @@ services:
     image: checkout
     build: ./checkout/
     environment:
-      - "DB_DSN=postgres://postgres:postgres@checkout_db:5432/postgres"
-      - "GRPC_PORT=8080"
-      - "HTTP_PORT=8180"
-      - "SERVICES_LOMS_URL=loms:8081"
-      - "SERVICES_PRODUCT_SERVICE_URL=route256.pavl.uk:8082"
-      - "SERVICES_PRODUCT_SERVICE_TOKEN=${PRODUCT_SERVICE_TOKEN}"
+      DB_DSN: "postgres://postgres:postgres@checkout_db:5432/postgres"
+      GRPC_PORT: "8080"
+      HTTP_PORT: "8180"
+      SERVICES_LOMS_URL: "loms:8081"
+      SERVICES_PRODUCT_SERVICE_URL: "route256.pavl.uk:8082"
+      SERVICES_PRODUCT_SERVICE_TOKEN: "${PRODUCT_SERVICE_TOKEN}"
     ports:
       - "8080:8080"
       - "8180:8180"
@@ -17,26 +17,26 @@ services:
   checkout_db:
     image: postgres:15
     environment:
-      - "POSTGRES_USER=postgres"
-      - "POSTGRES_PASSWORD=postgres"
-      - "POSTGRES_DB=postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
 
   loms:
     image: loms
     build: ./loms/
     environment:
-      - "DB_DSN=postgres://postgres:postgres@loms_db:5432/postgres"
-      - "GRPC_PORT=8081"
-      - "HTTP_PORT=8181"
+      DB_DSN: "postgres://postgres:postgres@loms_db:5432/postgres"
+      GRPC_PORT: "8081"
+      HTTP_PORT: "8181"
     ports:
       - "8081:8081"
 
   loms_db:
     image: postgres:15
     environment:
-      - "POSTGRES_USER=postgres"
-      - "POSTGRES_PASSWORD=postgres"
-      - "POSTGRES_DB=postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
 
   # notification:
   #   image: notification
