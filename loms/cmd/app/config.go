@@ -14,7 +14,7 @@ type Config struct {
 	Services struct {
 	} `mapstructure:"services"`
 	OrderStatusChangeNotifyBrokers []string `mapstructure:"order_status_change_notify_brokers"`
-	orderStatusChangeNotifierTopic string   `mapstructure:"order_status_change_notifier_topic"`
+	OrderStatusChangeNotifierTopic string   `mapstructure:"order_status_change_notifier_topic"`
 }
 
 func ConfigLoad() (*Config, error) {

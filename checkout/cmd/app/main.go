@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -67,6 +68,14 @@ func main() {
 	err = checkout_v1.RegisterCheckoutHandlerFromEndpoint(context.Background(), mux, "localhost:"+cfg.GrpcPort, opts)
 	if err != nil {
 		log.Fatalln("RegisterCheckoutHandlerFromEndpoint: ", err)
+	}
+
+	// add health check handler
+	err = mux.HandlePath("GET", "/health", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		w.WriteHeader(http.StatusOK)
+	})
+	if err != nil {
+		log.Fatalln("mux.HandlePath: ", err)
 	}
 
 	// start server

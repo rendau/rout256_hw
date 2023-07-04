@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	dbPg "route256/libs/db/pg"
 	"route256/libs/grpcserver"
@@ -41,10 +42,10 @@ func main() {
 
 	var eventProducerOrderStatusChange domain.IEventProducer = nil
 
-	if len(cfg.OrderStatusChangeNotifyBrokers) > 0 && cfg.orderStatusChangeNotifierTopic != "" {
+	if len(cfg.OrderStatusChangeNotifyBrokers) > 0 && cfg.OrderStatusChangeNotifierTopic != "" {
 		eventProducerOrderStatusChange, err = kafka_producer.NewKafkaProducer(kafka_producer.KafkaProducerConfig{
 			Brokers:        cfg.OrderStatusChangeNotifyBrokers,
-			Topic:          cfg.orderStatusChangeNotifierTopic,
+			Topic:          cfg.OrderStatusChangeNotifierTopic,
 			Compress:       false,
 			AssuranceLevel: kafka_producer.AssuranceLevelExactlyOnce,
 		})
@@ -67,6 +68,14 @@ func main() {
 	err = loms_v1.RegisterLomsHandlerFromEndpoint(context.Background(), mux, "localhost:"+cfg.GrpcPort, opts)
 	if err != nil {
 		log.Fatalln("RegisterCheckoutHandlerFromEndpoint: ", err)
+	}
+
+	// add health check handler
+	err = mux.HandlePath("GET", "/health", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		w.WriteHeader(http.StatusOK)
+	})
+	if err != nil {
+		log.Fatalln("mux.HandlePath: ", err)
 	}
 
 	// start server

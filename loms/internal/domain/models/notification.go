@@ -1,6 +1,6 @@
 package models
 
 type NotificationOrderStatusChangeSt struct {
-	OrderID int64
-	Status  string
+	OrderID int64  `json:"order_id"`
+	Status  string `json:"status"`
 }

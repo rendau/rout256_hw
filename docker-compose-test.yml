@@ -1,58 +1,96 @@
 version: "3.7"
 services:
-  #  checkout:
-  #    image: checkout
-  #    build: ./checkout/
-  #    environment:
-  #      DB_DSN: "postgres://postgres:postgres@checkout_db:5432/postgres"
-  #      GRPC_PORT: "8080"
-  #      HTTP_PORT: "8180"
-  #      SERVICES_LOMS_URL: "loms:8081"
-  #      SERVICES_PRODUCT_SERVICE_URL: "route256.pavl.uk:8082"
-  #      SERVICES_PRODUCT_SERVICE_TOKEN: "${PRODUCT_SERVICE_TOKEN}"
-  #    ports:
-  #      - "8080:8080"
-  #      - "8180:8180"
-  #    depends_on:
-  #      - checkout_db
-  #
-  #  checkout_db:
-  #    image: postgres:15
-  #    environment:
-  #      POSTGRES_USER: "postgres"
-  #      POSTGRES_PASSWORD: "postgres"
-  #      POSTGRES_DB: "postgres"
-  #    ports:
-  #      - "5433:5432"
-  #
-  #  loms:
-  #    image: loms
-  #    build: ./loms/
-  #    environment:
-  #      DB_DSN: "postgres://postgres:postgres@loms_db:5432/postgres"
-  #      GRPC_PORT: "8081"
-  #      HTTP_PORT: "8181"
-  #    ports:
-  #      - "8081:8081"
-  #      - "8181:8181"
-  #    depends_on:
-  #      - loms_db
-  #      - kafka
-  #
-  #  loms_db:
-  #    image: postgres:15
-  #    environment:
-  #      POSTGRES_USER: "postgres"
-  #      POSTGRES_PASSWORD: "postgres"
-  #      POSTGRES_DB: "postgres"
-  #    ports:
-  #      - "5434:5432"
+  checkout:
+    image: checkout
+    build: ./checkout/
+    environment:
+      DB_DSN: "postgres://postgres:postgres@checkout_db:5432/postgres"
+      GRPC_PORT: "8080"
+      HTTP_PORT: "8180"
+      SERVICES_LOMS_URL: "loms:8081"
+      SERVICES_PRODUCT_SERVICE_URL: "route256.pavl.uk:8082"
+      SERVICES_PRODUCT_SERVICE_TOKEN: "${PRODUCT_SERVICE_TOKEN}"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8180/health || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 8s
+    ports:
+      - "8080:8080"
+      - "8180:8180"
+    depends_on:
+      checkout_db:
+        condition: service_healthy
 
-  # notification:
-  #   image: notification
-  #   build: ./notification
-  #   ports:
-  #     - "8082:8082"
+  checkout_db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 8s
+    ports:
+      - "5433:5432"
+
+  loms:
+    image: loms
+    build: ./loms/
+    environment:
+      DB_DSN: "postgres://postgres:postgres@loms_db:5432/postgres"
+      GRPC_PORT: "8081"
+      HTTP_PORT: "8181"
+      ORDER_STATUS_CHANGE_NOTIFY_BROKERS: "kafka:19092"
+      ORDER_STATUS_CHANGE_NOTIFIER_TOPIC: "order_status"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8181/health || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 8s
+    ports:
+      - "8081:8081"
+      - "8181:8181"
+    depends_on:
+      loms_db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  loms_db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 8s
+    ports:
+      - "5434:5432"
+
+  notifications:
+    image: notifications
+    build: ./notifications/
+    environment:
+      TZ: "Asia/Almaty"
+      KAFKA_BROKERS: "kafka:19092"
+      KAFKA_GROUP: "notification"
+      ORDER_STATUS_CHANGE_TOPIC: "order_status"
+      TELEGRAM_TOKEN: "1843316279:AAEyleWu4EYbkkuxjAIlLlwzXzY9BHPhZhY"
+      TELEGRAM_CHAT_ID: "-910838551"
+      ORDER_STATUS_CHANGE_EVENT_TEMPLATE: "Order №%d status changed to %s"
+    depends_on:
+      kafka:
+        condition: service_healthy
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -60,9 +98,17 @@ services:
       TZ: "Asia/Almaty"
       ZOOKEEPER_TICK_TIME: "2000"
       ZOOKEEPER_CLIENT_PORT: "2181"
+    healthcheck:
+      test: nc -z localhost 2181 || exit -1
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 8s
 
   kafka:
     image: confluentinc/cp-kafka:latest
+    logging:
+      driver: none
     environment:
       TZ: "Asia/Almaty"
       KAFKA_ADVERTISED_LISTENERS: internal://kafka:19092, external://:9092
@@ -71,8 +117,6 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
-      KAFKA_TOOLS_LOG4J_LOGLEVEL: "ERROR"
     healthcheck:
       test: [ "CMD", "kafka-topics", "--list", "--bootstrap-server", "localhost:9092" ]
       start_period: 10s
@@ -90,9 +134,11 @@ services:
       SERVICES_LOMS_URL: "loms:8081"
       KAFKA_BROKERS: "kafka:19092"
       KAFKA_GROUP: "tst-group"
-      KAFKA_TOPIC: "tst-topic"
+      KAFKA_TOPIC: "tst-topic1"
     depends_on:
-#      - checkout
-#      - loms
+      checkout:
+        condition: service_healthy
+      loms:
+        condition: service_healthy
       kafka:
         condition: service_healthy
