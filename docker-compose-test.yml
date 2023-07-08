@@ -140,6 +140,18 @@ services:
       #      - "14268:14268"
       #      - "9411:9411"
 
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      checkout:
+        condition: service_healthy
+      loms:
+        condition: service_healthy
+
   test:
     image: test
     build: ./test/

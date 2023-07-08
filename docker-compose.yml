@@ -10,6 +10,7 @@ services:
       SERVICES_LOMS_URL: "loms:8081"
       SERVICES_PRODUCT_SERVICE_URL: "route256.pavl.uk:8082"
       SERVICES_PRODUCT_SERVICE_TOKEN: "${PRODUCT_SERVICE_TOKEN}"
+      JAEGER_HOST_PORT: "jaeger:6831"
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8180/health || exit 1" ]
       interval: 10s
@@ -47,6 +48,7 @@ services:
       HTTP_PORT: "8181"
       ORDER_STATUS_CHANGE_NOTIFY_BROKERS: "kafka:19092"
       ORDER_STATUS_CHANGE_NOTIFIER_TOPIC: "order_status"
+      JAEGER_HOST_PORT: "jaeger:6831"
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8181/health || exit 1" ]
       interval: 10s
@@ -125,3 +127,26 @@ services:
       retries: 3
     depends_on:
       - zookeeper
+
+  jaeger:
+    image: jaegertracing/all-in-one
+    ports:
+      - "16686:16686" # web
+      #      - "5775:5775/udp"
+      #      - "6831:6831/udp"
+      #      - "6832:6832/udp"
+      #      - "5778:5778"
+      #      - "14268:14268"
+      #      - "9411:9411"
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      checkout:
+        condition: service_healthy
+      loms:
+        condition: service_healthy

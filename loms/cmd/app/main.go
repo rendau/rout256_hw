@@ -9,6 +9,7 @@ import (
 	"route256/libs/httpserver"
 	"route256/libs/kafka_producer"
 	"route256/libs/logger"
+	"route256/libs/metrics"
 	"route256/libs/stopsignal"
 	"route256/libs/tracer"
 	"route256/loms/internal/domain"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	otgrpc "github.com/opentracing-contrib/go-grpc"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
@@ -33,6 +35,8 @@ func main() {
 	if err != nil {
 		logger.Fatalw(nil, err, "tracer.InitGlobal")
 	}
+
+	metrics.Init("loms")
 
 	db, err := dbPg.New(cfg.DbDsn)
 	if err != nil {
@@ -69,6 +73,7 @@ func main() {
 			otgrpc.OpenTracingServerInterceptor(tracer.GetTracer()),
 			logger.MiddlewareGRPC,
 			tracer.MiddlewareGRPC,
+			metrics.MiddlewareGRPC,
 		),
 	)
 	reflection.Register(grpcSrv.Server)
@@ -81,22 +86,30 @@ func main() {
 	if err != nil {
 		logger.Fatalw(nil, err, "loms_v1.RegisterLomsHandlerFromEndpoint")
 	}
-
 	// add health check handler
-	err = mux.HandlePath("GET", "/health", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+	if err = mux.HandlePath("GET", "/health", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
 		w.WriteHeader(http.StatusOK)
-	})
-	if err != nil {
+	}); err != nil {
 		logger.Fatalw(nil, err, "mux.HandlePath")
+	}
+	// add metrics handler
+	if err = mux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		promhttp.Handler().ServeHTTP(w, r)
+	}); err != nil {
+		logger.Fatalw(nil, err, "something wrong with metrics handler")
 	}
 
 	// start server
 
+	logger.Infow(nil, "Start...")
+
+	// grpc
 	err = grpcSrv.Start(cfg.GrpcPort)
 	if err != nil {
 		logger.Fatalw(nil, err, "grpcSrv.Start")
 	}
 
+	// http
 	httpSrv := httpserver.Start(cfg.HttpPort, mux)
 	if err != nil {
 		logger.Fatalw(nil, err, "httpSrv.Start")
