@@ -2,9 +2,8 @@ package test
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"os"
+	"route256/libs/logger"
 	"route256/test/pkg/proto/checkout_v1"
 	"route256/test/pkg/proto/loms_v1"
 	"testing"
@@ -21,7 +20,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	fmt.Println("Starting tests...")
+	logger.Init("info", true)
 
 	//time.Sleep(3 * time.Second)
 
@@ -32,13 +31,13 @@ func TestMain(m *testing.M) {
 
 	conn, err := grpc.Dial(checkoutUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatalw(nil, err, "grpc.Dial")
 	}
 	checkoutClient = checkout_v1.NewCheckoutClient(conn)
 
 	conn, err = grpc.Dial(lomsUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatalw(nil, err, "grpc.Dial")
 	}
 	lomsClient = loms_v1.NewLomsClient(conn)
 

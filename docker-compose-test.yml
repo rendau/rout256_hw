@@ -1,15 +1,18 @@
 version: "3.7"
+
 services:
   checkout:
     image: checkout
     build: ./checkout/
     environment:
+      DEBUG: "true"
       DB_DSN: "postgres://postgres:postgres@checkout_db:5432/postgres"
       GRPC_PORT: "8080"
       HTTP_PORT: "8180"
       SERVICES_LOMS_URL: "loms:8081"
       SERVICES_PRODUCT_SERVICE_URL: "route256.pavl.uk:8082"
       SERVICES_PRODUCT_SERVICE_TOKEN: "${PRODUCT_SERVICE_TOKEN}"
+      JAEGER_HOST_PORT: "jaeger:6831"
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8180/health || exit 1" ]
       interval: 10s
@@ -42,11 +45,13 @@ services:
     image: loms
     build: ./loms/
     environment:
+      DEBUG: "true"
       DB_DSN: "postgres://postgres:postgres@loms_db:5432/postgres"
       GRPC_PORT: "8081"
       HTTP_PORT: "8181"
       ORDER_STATUS_CHANGE_NOTIFY_BROKERS: "kafka:19092"
       ORDER_STATUS_CHANGE_NOTIFIER_TOPIC: "order_status"
+      JAEGER_HOST_PORT: "jaeger:6831"
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8181/health || exit 1" ]
       interval: 10s
@@ -81,7 +86,7 @@ services:
     image: notifications
     build: ./notifications/
     environment:
-      TZ: "Asia/Almaty"
+      DEBUG: "true"
       KAFKA_BROKERS: "kafka:19092"
       KAFKA_GROUP: "notification"
       ORDER_STATUS_CHANGE_TOPIC: "order_status"
@@ -95,7 +100,6 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     environment:
-      TZ: "Asia/Almaty"
       ZOOKEEPER_TICK_TIME: "2000"
       ZOOKEEPER_CLIENT_PORT: "2181"
     healthcheck:
@@ -110,7 +114,6 @@ services:
     logging:
       driver: none
     environment:
-      TZ: "Asia/Almaty"
       KAFKA_ADVERTISED_LISTENERS: internal://kafka:19092, external://:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: internal:PLAINTEXT,external:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: internal
@@ -125,6 +128,17 @@ services:
       retries: 3
     depends_on:
       - zookeeper
+
+  jaeger:
+    image: jaegertracing/all-in-one
+    ports:
+      - "16686:16686" # web
+      #      - "5775:5775/udp"
+      #      - "6831:6831/udp"
+      #      - "6832:6832/udp"
+      #      - "5778:5778"
+      #      - "14268:14268"
+      #      - "9411:9411"
 
   test:
     image: test

@@ -2,8 +2,8 @@ package grpcserver
 
 import (
 	"fmt"
-	"log"
 	"net"
+	"route256/libs/logger"
 
 	"google.golang.org/grpc"
 )
@@ -13,9 +13,9 @@ type Server struct {
 	eChan  chan error
 }
 
-func New() *Server {
+func New(opts ...grpc.ServerOption) *Server {
 	return &Server{
-		Server: grpc.NewServer(),
+		Server: grpc.NewServer(opts...),
 		eChan:  make(chan error, 1),
 	}
 }
@@ -26,12 +26,12 @@ func (s *Server) Start(port string) error {
 		return fmt.Errorf("fail to listen: %w", err)
 	}
 
-	log.Println("Start grpc server:", lis.Addr().String())
+	logger.Infow(nil, "Start grpc server", "addr", lis.Addr().String())
 
 	go func() {
 		err = s.Server.Serve(lis)
 		if err != nil {
-			log.Println("GRPC server closed", err)
+			logger.Errorw(nil, err, "GRPC server closed")
 			s.eChan <- err
 		}
 	}()

@@ -8,6 +8,8 @@ import (
 )
 
 type Config struct {
+	Debug                          bool     `mapstructure:"debug"`
+	LogLevel                       string   `mapstructure:"log_level"`
 	KafkaBrokers                   []string `mapstructure:"kafka_brokers"`
 	KafkaGroup                     string   `mapstructure:"kafka_group"`
 	OrderStatusChangeTopic         string   `mapstructure:"order_status_change_topic"`
@@ -16,7 +18,10 @@ type Config struct {
 	OrderStatusChangeEventTemplate string   `mapstructure:"order_status_change_event_template"`
 }
 
-func ConfigLoad() (*Config, error) {
+func ConfigLoad() *Config {
+	// set default values
+	viper.SetDefault("debug", false)
+	viper.SetDefault("log_level", "info")
 	viper.SetDefault("kafka_brokers", "")
 	viper.SetDefault("kafka_group", "")
 	viper.SetDefault("order_status_change_topic", "")
@@ -42,5 +47,5 @@ func ConfigLoad() (*Config, error) {
 	// unmarshal config
 	_ = viper.Unmarshal(&conf)
 
-	return conf, nil
+	return conf
 }

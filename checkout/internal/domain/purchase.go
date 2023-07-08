@@ -2,7 +2,7 @@ package domain
 
 import (
 	"context"
-	"log"
+	"route256/libs/logger"
 
 	"route256/checkout/internal/domain/models"
 )
@@ -43,13 +43,13 @@ func (d *Domain) Purchase(ctx context.Context, user int64) (int64, error) {
 	// remove cart items
 	err = d.repo.CartItemRemoveAllForCartId(ctx, cart.Id)
 	if err != nil {
-		log.Printf("error removing cart items: %v", err)
+		logger.Errorw(ctx, err, "error removing cart items")
 	}
 
 	// remove cart
 	err = d.repo.CartRemove(ctx, cart.Id)
 	if err != nil {
-		log.Printf("error removing cart: %v", err)
+		logger.Errorw(ctx, err, "error removing cart")
 	}
 
 	return orderID, nil

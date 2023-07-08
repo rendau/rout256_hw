@@ -3,10 +3,12 @@ package loms
 import (
 	"context"
 	"fmt"
+	"route256/libs/tracer"
 
 	"route256/checkout/internal/domain/models"
 	"route256/checkout/pkg/proto/loms_v1"
 
+	otgrpc "github.com/opentracing-contrib/go-grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -16,7 +18,11 @@ type Client struct {
 }
 
 func New(uri string) (*Client, error) {
-	conn, err := grpc.Dial(uri, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(
+		uri,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer.GetTracer())),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("dial: %w", err)
 	}

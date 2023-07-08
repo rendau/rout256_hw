@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"route256/libs/kafka_consumer"
+	"route256/libs/logger"
 	"route256/libs/stopsignal"
 	"route256/notifications/internal/clients/telegram"
 	"route256/notifications/internal/domain"
@@ -18,10 +19,9 @@ type OrderStatusChangeEventSt struct {
 }
 
 func main() {
-	cfg, err := ConfigLoad()
-	if err != nil {
-		log.Fatalln("ERR: ", err)
-	}
+	cfg := ConfigLoad()
+
+	logger.Init(cfg.LogLevel, cfg.Debug)
 
 	// telegram
 	tg, err := telegram.New(cfg.TelegramToken, cfg.TelegramChatId)

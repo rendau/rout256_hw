@@ -2,8 +2,8 @@ package httpserver
 
 import (
 	"context"
-	"log"
 	"net/http"
+	"route256/libs/logger"
 	"time"
 )
 
@@ -30,12 +30,12 @@ func Start(port string, handler http.Handler) *Server {
 		eChan: make(chan error, 1),
 	}
 
-	log.Println("Start rest-api:", s.server.Addr)
+	logger.Infow(nil, "Start http server", "addr", s.server.Addr)
 
 	go func() {
 		err := s.server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			log.Println("Http server closed", err)
+			logger.Errorw(nil, err, "Http server closed")
 			s.eChan <- err
 		}
 	}()
@@ -55,7 +55,7 @@ func (s *Server) Shutdown(timeout time.Duration) bool {
 
 	err := s.server.Shutdown(ctx)
 	if err != nil {
-		log.Println("Fail to shutdown http-api", "addr", s.addr, err)
+		logger.Errorw(nil, err, "Fail to shutdown http server", "addr", s.addr)
 		return false
 	}
 

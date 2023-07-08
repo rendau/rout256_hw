@@ -2,16 +2,8 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
-	"time"
-
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/reflection"
-
 	"route256/checkout/internal/client/loms"
 	"route256/checkout/internal/client/productservice"
 	"route256/checkout/internal/domain"
@@ -21,42 +13,62 @@ import (
 	dbPg "route256/libs/db/pg"
 	"route256/libs/grpcserver"
 	"route256/libs/httpserver"
+	"route256/libs/logger"
 	"route256/libs/stopsignal"
+	"route256/libs/tracer"
+	"time"
+
+	"github.com/opentracing-contrib/go-grpc"
+
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
-	cfg, err := ConfigLoad()
+	cfg := ConfigLoad()
+
+	logger.Init(cfg.LogLevel, cfg.Debug)
+
+	err := tracer.InitGlobal(cfg.JaegerHostPort, "checkout")
 	if err != nil {
-		log.Fatalln("ERR: ", err)
+		logger.Fatalw(nil, err, "tracer.InitGlobal")
 	}
 
 	db, err := dbPg.New(cfg.DbDsn)
 	if err != nil {
-		log.Fatalln("pg.New: ", err)
+		logger.Fatalw(nil, err, "dbPg.New")
 	}
 
 	err = db.Migrate("migrations")
 	if err != nil {
-		log.Fatalln("db.Migrate: ", err)
+		logger.Fatalw(nil, err, "db.Migrate")
 	}
 
 	repo := repoPg.New(db)
 
 	lomsClient, err := loms.New(cfg.Services.Loms.Url)
 	if err != nil {
-		log.Fatalln("loms.New: ", err)
+		logger.Fatalw(nil, err, "loms.New")
 	}
 
 	productService, err := productservice.New(cfg.Services.ProductService.Url, cfg.Services.ProductService.Token)
 	if err != nil {
-		log.Fatalln("productservice.New: ", err)
+		logger.Fatalw(nil, err, "productservice.New")
 	}
 
 	dm := domain.New(repo, lomsClient, productService)
 
 	// grpc
 	grpcHandler := handler.New(dm)
-	grpcSrv := grpcserver.New()
+	grpcSrv := grpcserver.New(
+		grpc.ChainUnaryInterceptor(
+			otgrpc.OpenTracingServerInterceptor(tracer.GetTracer()),
+			logger.MiddlewareGRPC,
+			tracer.MiddlewareGRPC,
+		),
+	)
 	reflection.Register(grpcSrv.Server)
 	checkout_v1.RegisterCheckoutServer(grpcSrv.Server, grpcHandler)
 
@@ -67,26 +79,28 @@ func main() {
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	err = checkout_v1.RegisterCheckoutHandlerFromEndpoint(context.Background(), mux, "localhost:"+cfg.GrpcPort, opts)
 	if err != nil {
-		log.Fatalln("RegisterCheckoutHandlerFromEndpoint: ", err)
+		logger.Fatalw(nil, err, "checkout_v1.RegisterCheckoutHandlerFromEndpoint")
 	}
 	// add health check handler
 	err = mux.HandlePath("GET", "/health", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
 		w.WriteHeader(http.StatusOK)
 	})
 	if err != nil {
-		log.Fatalln("mux.HandlePath: ", err)
+		logger.Fatalw(nil, err, "mux.HandlePath")
 	}
 
 	// start server
 
+	logger.Infow(nil, "Start")
+
 	err = grpcSrv.Start(cfg.GrpcPort)
 	if err != nil {
-		log.Fatalln("grpcSrv.Start: ", err)
+		logger.Fatalw(nil, err, "grpcSrv.Start")
 	}
 
 	httpSrv := httpserver.Start(cfg.HttpPort, mux)
 	if err != nil {
-		log.Fatalln("httpserver.Start: ", err)
+		logger.Fatalw(nil, err, "httpserver.Start")
 	}
 
 	exitCode := 0
@@ -101,7 +115,7 @@ func main() {
 
 	// shutdown
 
-	log.Println("Shutdown service...")
+	logger.Infow(nil, "Shutdown...")
 
 	if !grpcSrv.Shutdown() {
 		exitCode = 1
@@ -113,7 +127,7 @@ func main() {
 
 	// exit
 
-	log.Println("Exit...")
+	logger.Infow(nil, "Exit...")
 
 	os.Exit(exitCode)
 }
