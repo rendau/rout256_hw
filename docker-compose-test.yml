@@ -87,6 +87,7 @@ services:
     build: ./notifications/
     environment:
       DEBUG: "true"
+      DB_DSN: "postgres://postgres:postgres@notifications_db:5432/postgres"
       KAFKA_BROKERS: "kafka:19092"
       KAFKA_GROUP: "notification"
       ORDER_STATUS_CHANGE_TOPIC: "order_status"
@@ -94,8 +95,25 @@ services:
       TELEGRAM_CHAT_ID: "-910838551"
       ORDER_STATUS_CHANGE_EVENT_TEMPLATE: "Order №%d status changed to %s"
     depends_on:
+      notifications_db:
+        condition: service_healthy
       kafka:
         condition: service_healthy
+
+  notifications_db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 8s
+    ports:
+      - "5435:5432"
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest

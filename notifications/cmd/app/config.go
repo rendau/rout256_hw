@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Debug                          bool     `mapstructure:"debug"`
 	LogLevel                       string   `mapstructure:"log_level"`
+	DbDsn                          string   `mapstructure:"db_dsn"`
 	KafkaBrokers                   []string `mapstructure:"kafka_brokers"`
 	KafkaGroup                     string   `mapstructure:"kafka_group"`
 	OrderStatusChangeTopic         string   `mapstructure:"order_status_change_topic"`
@@ -22,6 +23,7 @@ func ConfigLoad() *Config {
 	// set default values
 	viper.SetDefault("debug", false)
 	viper.SetDefault("log_level", "info")
+	viper.SetDefault("db_dsn", "postgres://localhost:5432/r256hw_notification?sslmode=disable")
 	viper.SetDefault("kafka_brokers", "")
 	viper.SetDefault("kafka_group", "")
 	viper.SetDefault("order_status_change_topic", "")

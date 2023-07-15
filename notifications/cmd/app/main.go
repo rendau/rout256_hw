@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	dbPg "route256/libs/db/pg"
 	"route256/libs/kafka_consumer"
 	"route256/libs/logger"
 	"route256/libs/stopsignal"
 	"route256/notifications/internal/clients/telegram"
 	"route256/notifications/internal/domain"
+	"route256/notifications/internal/domain/models"
+	repoPg "route256/notifications/internal/repo/pg"
 	"time"
 )
 
@@ -23,13 +26,25 @@ func main() {
 
 	logger.Init(cfg.LogLevel, cfg.Debug)
 
+	db, err := dbPg.New(cfg.DbDsn)
+	if err != nil {
+		logger.Fatalw(nil, err, "dbPg.New")
+	}
+
+	err = db.Migrate("migrations")
+	if err != nil {
+		logger.Fatalw(nil, err, "db.Migrate")
+	}
+
+	repo := repoPg.New(db)
+
 	// telegram
 	tg, err := telegram.New(cfg.TelegramToken, cfg.TelegramChatId)
 	if err != nil {
 		log.Fatalln("ERR: ", err)
 	}
 
-	dm := domain.New(tg, cfg.OrderStatusChangeEventTemplate)
+	dm := domain.New(repo, tg, cfg.OrderStatusChangeEventTemplate)
 
 	// consumer
 	consumer, err := kafka_consumer.NewKafkaConsumer(kafka_consumer.KafkaConsumerConfig{
@@ -43,7 +58,7 @@ func main() {
 				return true
 			}
 
-			if dm.HandleOrderStatusChangeEvent(domain.OrderStatusChangeEventSt{
+			if dm.HandleOrderStatusEvent(&models.OrderStatusEventSt{
 				OrderID: obj.OrderID,
 				Status:  obj.Status,
 			}) != nil {

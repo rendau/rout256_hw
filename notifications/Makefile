@@ -38,3 +38,9 @@ install-smartimports: bindir
 	test -f ${SMARTIMPORTS} || \
 		(GOBIN=${BINDIR} go install github.com/pav5000/smartimports/cmd/smartimports@latest && \
 		mv ${BINDIR}/smartimports ${SMARTIMPORTS})
+
+migration-up:
+	goose -dir ./migrations postgres "postgres://localhost:5432/r256hw_notification?sslmode=disable" up
+
+migration-down:
+	goose -dir ./migrations postgres "postgres://localhost:5432/r256hw_notification?sslmode=disable" down
