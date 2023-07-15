@@ -41,6 +41,8 @@ func (r *St) OrderStatusEventList(ctx context.Context, pars *models.OrderStatusE
 		query = query.Where("order_id = ?", *pars.OrderID)
 	}
 
+	query.OrderBy("ts")
+
 	// raw sql
 	rawSQL, args, err := query.ToSql()
 	if err != nil {

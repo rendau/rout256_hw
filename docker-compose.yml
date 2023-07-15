@@ -85,12 +85,20 @@ services:
     environment:
       TZ: "Asia/Almaty"
       DB_DSN: "postgres://postgres:postgres@notifications_db:5432/postgres"
+      GRPC_PORT: "8082"
+      HTTP_PORT: "8182"
       KAFKA_BROKERS: "kafka:19092"
       KAFKA_GROUP: "notification"
       ORDER_STATUS_CHANGE_TOPIC: "order_status"
       TELEGRAM_TOKEN: "1843316279:AAEyleWu4EYbkkuxjAIlLlwzXzY9BHPhZhY"
       TELEGRAM_CHAT_ID: "-910838551"
       ORDER_STATUS_CHANGE_EVENT_TEMPLATE: "Order №%d status changed to %s"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8182/health || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 8s
     depends_on:
       notifications_db:
         condition: service_healthy

@@ -39,6 +39,48 @@ install-smartimports: bindir
 		(GOBIN=${BINDIR} go install github.com/pav5000/smartimports/cmd/smartimports@latest && \
 		mv ${BINDIR}/smartimports ${SMARTIMPORTS})
 
+# Используем bin в текущей директории для установки плагинов protoc
+bin: bindir
+	GOBIN=$(BINDIR) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	GOBIN=$(BINDIR) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	GOBIN=$(BINDIR) go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+	GOBIN=$(BINDIR) go install github.com/envoyproxy/protoc-gen-validate@latest
+
+# Добавляем bin в текущей директории в PATH при запуске protoc
+PROTOC = PATH="$$PATH:$(BINDIR)" protoc
+
+# Устанавливаем proto описания google/googleapis
+vendor-proto/google/api:
+	git clone -b master --single-branch -n --depth=1 --filter=tree:0 \
+ 		https://github.com/googleapis/googleapis vendor-proto/googleapis &&\
+ 	cd vendor-proto/googleapis &&\
+	git sparse-checkout set --no-cone google/api &&\
+	git checkout
+	mkdir -p  vendor-proto/google
+	mv vendor-proto/googleapis/google/api vendor-proto/google
+	rm -rf vendor-proto/googleapis
+
+# Устанавливаем proto описания google/protobuf
+vendor-proto/google/protobuf:
+	git clone -b main --single-branch -n --depth=1 --filter=tree:0 \
+		https://github.com/protocolbuffers/protobuf vendor-proto/protobuf &&\
+	cd vendor-proto/protobuf &&\
+	git sparse-checkout set --no-cone src/google/protobuf &&\
+	git checkout
+	mkdir -p  vendor-proto/google
+	mv vendor-proto/protobuf/src/google/protobuf vendor-proto/google
+	rm -rf vendor-proto/protobuf
+
+generate_deps: bin vendor-proto/google/api vendor-proto/google/protobuf
+
+generate:
+	mkdir -p pkg/proto/notifications_v1
+	$(PROTOC) -I api/proto/notifications_v1 -I vendor-proto \
+	--go_out pkg/proto/notifications_v1 --go_opt paths=source_relative \
+	--go-grpc_out pkg/proto/notifications_v1 --go-grpc_opt paths=source_relative \
+	--grpc-gateway_out pkg/proto/notifications_v1 --grpc-gateway_opt paths=source_relative \
+	api/proto/notifications_v1/notifications.proto
+
 migration-up:
 	goose -dir ./migrations postgres "postgres://localhost:5432/r256hw_notification?sslmode=disable" up
 

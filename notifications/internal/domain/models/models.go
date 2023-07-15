@@ -11,7 +11,7 @@ type OrderStatusEventSt struct {
 }
 
 type OrderStatusEventListParsSt struct {
+	OrderID *int64
 	TsGTE   *time.Time
 	TsLTE   *time.Time
-	OrderID *int64
 }

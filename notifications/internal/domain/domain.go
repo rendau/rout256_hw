@@ -41,9 +41,7 @@ func (d *Domain) HandleOrderStatusEvent(obj *models.OrderStatusEventSt) error {
 	return nil
 }
 
-func (d *Domain) OrderStatusEventList(pars *models.OrderStatusEventListParsSt) ([]*models.OrderStatusEventSt, error) {
-	ctx := context.Background()
-
+func (d *Domain) ListOrderStatusEvent(ctx context.Context, pars *models.OrderStatusEventListParsSt) ([]*models.OrderStatusEventSt, error) {
 	result, err := d.repo.OrderStatusEventList(ctx, pars)
 	if err != nil {
 		return nil, fmt.Errorf("repo.OrderStatusEventList: %w", err)

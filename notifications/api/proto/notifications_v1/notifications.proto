@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package notifications_v1;
+
+option go_package = "route256/notifications/pkg/proto/notifications_v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+service Notifications {
+  rpc ListOrderStatusEvent(ListOrderStatusEventRequest) returns (ListOrderStatusEventResponse) {
+    option (google.api.http) = {
+      get: "/listOrderStatusEvent"
+    };
+  };
+}
+
+message ListOrderStatusEventRequest {
+  optional int64 orderID = 1;
+  optional google.protobuf.Timestamp tsGTE = 2;
+  optional google.protobuf.Timestamp tsLTE = 3;
+}
+
+message ListOrderStatusEventResponse {
+  repeated OrderStatusEvent items = 1;
+}
+
+message OrderStatusEvent {
+  google.protobuf.Timestamp ts = 1;
+  int64 orderID = 2;
+  string status = 3;
+}

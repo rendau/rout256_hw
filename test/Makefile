@@ -80,4 +80,12 @@ generate_loms:
 	--validate_out="lang=go,paths=source_relative:pkg/proto/loms_v1" \
 	api/proto/loms_v1/loms.proto
 
-generate: generate_checkout generate_product_service generate_loms
+generate_notifications:
+	mkdir -p pkg/proto/notifications_v1
+	$(PROTOC) -I api/proto/notifications_v1 -I vendor-proto \
+	--go_out pkg/proto/notifications_v1 --go_opt paths=source_relative \
+	--go-grpc_out pkg/proto/notifications_v1 --go-grpc_opt paths=source_relative \
+	--grpc-gateway_out pkg/proto/notifications_v1 --grpc-gateway_opt paths=source_relative \
+	api/proto/notifications_v1/notifications.proto
+
+generate: generate_checkout generate_product_service generate_loms generate_notifications

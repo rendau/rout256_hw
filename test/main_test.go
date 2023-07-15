@@ -2,21 +2,26 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"route256/libs/logger"
 	"route256/test/pkg/proto/checkout_v1"
 	"route256/test/pkg/proto/loms_v1"
+	"route256/test/pkg/proto/notifications_v1"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
-	checkoutClient checkout_v1.CheckoutClient
-	lomsClient     loms_v1.LomsClient
+	checkoutClient      checkout_v1.CheckoutClient
+	lomsClient          loms_v1.LomsClient
+	notificationsClient notifications_v1.NotificationsClient
 )
 
 func TestMain(m *testing.M) {
@@ -28,18 +33,28 @@ func TestMain(m *testing.M) {
 
 	checkoutUrl := viper.GetString("SERVICES_CHECKOUT_URL")
 	lomsUrl := viper.GetString("SERVICES_LOMS_URL")
+	notificationsUrl := viper.GetString("SERVICES_NOTIFICATIONS_URL")
 
+	// checkout-client
 	conn, err := grpc.Dial(checkoutUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		logger.Fatalw(nil, err, "grpc.Dial")
 	}
 	checkoutClient = checkout_v1.NewCheckoutClient(conn)
 
+	// loms-client
 	conn, err = grpc.Dial(lomsUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		logger.Fatalw(nil, err, "grpc.Dial")
 	}
 	lomsClient = loms_v1.NewLomsClient(conn)
+
+	// notifications-client
+	conn, err = grpc.Dial(notificationsUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Fatalw(nil, err, "grpc.Dial")
+	}
+	notificationsClient = notifications_v1.NewNotificationsClient(conn)
 
 	os.Exit(m.Run())
 }
@@ -140,6 +155,20 @@ func TestGrpc(t *testing.T) {
 	require.NotNil(t, skuStock)
 	require.Len(t, skuStock.Stocks, 1)
 	require.Equal(t, uint64(10), skuStock.Stocks[0].Count)
+
+	time.Sleep(3 * time.Second) // wait for notifications
+
+	notificationsListResponse, err := notificationsClient.ListOrderStatusEvent(ctx, &notifications_v1.ListOrderStatusEventRequest{
+		TsGTE: timestamppb.New(time.Now().Add(-5 * time.Second)),
+		TsLTE: timestamppb.New(time.Now().Add(5 * time.Second)),
+	})
+	require.Nil(t, err, errMsg(err))
+	require.NotNil(t, notificationsListResponse)
+	require.Greater(t, len(notificationsListResponse.Items), 0)
+
+	for _, item := range notificationsListResponse.Items {
+		fmt.Println(item.OrderID, item.Status, item.Ts.AsTime().String())
+	}
 }
 
 //func TestKafka(t *testing.T) {

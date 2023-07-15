@@ -4,16 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 	dbPg "route256/libs/db/pg"
+	"route256/libs/grpcserver"
+	"route256/libs/httpserver"
 	"route256/libs/kafka_consumer"
 	"route256/libs/logger"
 	"route256/libs/stopsignal"
 	"route256/notifications/internal/clients/telegram"
 	"route256/notifications/internal/domain"
 	"route256/notifications/internal/domain/models"
+	"route256/notifications/internal/handler"
 	repoPg "route256/notifications/internal/repo/pg"
+	"route256/notifications/pkg/proto/notifications_v1"
 	"time"
+
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
 )
 
 type OrderStatusChangeEventSt struct {
@@ -73,18 +83,69 @@ func main() {
 		log.Fatalln("ERR: ", err)
 	}
 
+	// grpc
+	grpcHandler := handler.New(dm)
+	grpcSrv := grpcserver.New(
+		grpc.ChainUnaryInterceptor(
+			logger.MiddlewareGRPC,
+		),
+	)
+	reflection.Register(grpcSrv.Server)
+	notifications_v1.RegisterNotificationsServer(grpcSrv.Server, grpcHandler)
+
+	// http
+	mux := runtime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	err = notifications_v1.RegisterNotificationsHandlerFromEndpoint(context.Background(), mux, "localhost:"+cfg.GrpcPort, opts)
+	if err != nil {
+		logger.Fatalw(nil, err, "notifications_v1.RegisterNotificationsHandlerFromEndpoint")
+	}
+	// add health check handler
+	if err = mux.HandlePath("GET", "/health", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		w.WriteHeader(http.StatusOK)
+	}); err != nil {
+		logger.Fatalw(nil, err, "mux.HandlePath")
+	}
+
 	log.Println("Start service...")
 
 	consumer.Start()
 
-	// wait for stop signal
-	<-stopsignal.StopSignal()
+	// grpc
+	err = grpcSrv.Start(cfg.GrpcPort)
+	if err != nil {
+		logger.Fatalw(nil, err, "grpcSrv.Start")
+	}
+
+	// http
+	httpSrv := httpserver.Start(cfg.HttpPort, mux)
+	if err != nil {
+		logger.Fatalw(nil, err, "httpSrv.Start")
+	}
+
+	exitCode := 0
+
+	select {
+	case <-grpcSrv.Wait():
+		exitCode = 1
+	case <-httpSrv.Wait():
+		exitCode = 1
+	case <-stopsignal.StopSignal():
+	}
 
 	log.Println("Shutdown service...")
 
 	consumer.Stop()
 
+	if !grpcSrv.Shutdown() {
+		exitCode = 1
+	}
+
+	if !httpSrv.Shutdown(10 * time.Second) {
+		exitCode = 1
+	}
+
 	log.Println("Exit...")
 
-	os.Exit(0)
+	os.Exit(exitCode)
 }
