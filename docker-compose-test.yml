@@ -88,6 +88,7 @@ services:
     environment:
       DEBUG: "true"
       DB_DSN: "postgres://postgres:postgres@notifications_db:5432/postgres"
+      REDIS_URL: "notifications_cache:6379"
       GRPC_PORT: "8082"
       HTTP_PORT: "8182"
       KAFKA_BROKERS: "kafka:19092"
@@ -125,6 +126,15 @@ services:
       start_period: 8s
     ports:
       - "5435:5432"
+
+  notifications_cache:
+    image: redis:alpine
+    command:
+      - "redis-server"
+      - "--maxmemory"
+      - "100mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest

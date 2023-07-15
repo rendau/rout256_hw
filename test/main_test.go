@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"route256/libs/logger"
 	"route256/test/pkg/proto/checkout_v1"
@@ -165,10 +164,6 @@ func TestGrpc(t *testing.T) {
 	require.Nil(t, err, errMsg(err))
 	require.NotNil(t, notificationsListResponse)
 	require.Greater(t, len(notificationsListResponse.Items), 0)
-
-	for _, item := range notificationsListResponse.Items {
-		fmt.Println(item.OrderID, item.Status, item.Ts.AsTime().String())
-	}
 }
 
 //func TestKafka(t *testing.T) {

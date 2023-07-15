@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	cacheRedis "route256/libs/cache/redis"
 	dbPg "route256/libs/db/pg"
 	"route256/libs/grpcserver"
 	"route256/libs/httpserver"
@@ -48,13 +49,15 @@ func main() {
 
 	repo := repoPg.New(db)
 
+	cache := cacheRedis.New(cfg.RedisUrl, cfg.RedisPassword, cfg.RedisDb)
+
 	// telegram
 	tg, err := telegram.New(cfg.TelegramToken, cfg.TelegramChatId)
 	if err != nil {
 		log.Fatalln("ERR: ", err)
 	}
 
-	dm := domain.New(repo, tg, cfg.OrderStatusChangeEventTemplate)
+	dm := domain.New(repo, cache, tg, cfg.OrderStatusChangeEventTemplate)
 
 	// consumer
 	consumer, err := kafka_consumer.NewKafkaConsumer(kafka_consumer.KafkaConsumerConfig{

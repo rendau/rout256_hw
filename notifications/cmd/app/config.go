@@ -11,6 +11,9 @@ type Config struct {
 	Debug                          bool     `mapstructure:"debug"`
 	LogLevel                       string   `mapstructure:"log_level"`
 	DbDsn                          string   `mapstructure:"db_dsn"`
+	RedisUrl                       string   `mapstructure:"redis_url"`
+	RedisPassword                  string   `mapstructure:"redis_password"`
+	RedisDb                        int      `mapstructure:"redis_db"`
 	GrpcPort                       string   `mapstructure:"grpc_port"`
 	HttpPort                       string   `mapstructure:"http_port"`
 	KafkaBrokers                   []string `mapstructure:"kafka_brokers"`
@@ -26,6 +29,9 @@ func ConfigLoad() *Config {
 	viper.SetDefault("debug", false)
 	viper.SetDefault("log_level", "info")
 	viper.SetDefault("db_dsn", "postgres://localhost:5432/r256hw_notification?sslmode=disable")
+	viper.SetDefault("redis_url", "localhost:6379")
+	viper.SetDefault("redis_password", "")
+	viper.SetDefault("redis_db", 0)
 	viper.SetDefault("grpc_port", "8082")
 	viper.SetDefault("http_port", "8182")
 	viper.SetDefault("kafka_brokers", "")
